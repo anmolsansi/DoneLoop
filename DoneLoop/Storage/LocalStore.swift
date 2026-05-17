@@ -52,10 +52,16 @@ final class LocalStore: ObservableObject {
                 CapturePreview(
                     id: capture.id,
                     title: capture.transcript?.nonEmpty ?? capture.rawText.nonEmpty ?? "Untitled capture",
-                    detail: capture.aiOutputJSON == nil ? "Ready for interpretation" : "Structured output saved",
-                    source: capture.source.displayName
+                    detail: capture.aiOutputJSON == nil ? "No interpretation saved yet" : "Structured output saved",
+                    source: capture.source.displayName,
+                    status: capture.processingStatus.displayName,
+                    timestamp: capture.createdAt.formatted(date: .abbreviated, time: .shortened)
                 )
             }
+    }
+
+    func capture(id: UUID) -> DLCapture? {
+        captures.first { $0.id == id }
     }
 
     var todayTasks: [TaskPreview] {
@@ -83,15 +89,29 @@ final class LocalStore: ObservableObject {
         rawText: String,
         source: DLCaptureSource,
         transcript: String? = nil,
-        audioFilePath: String? = nil
+        audioFilePath: String? = nil,
+        processingStatus: DLCaptureProcessingStatus = .readyToInterpret
     ) -> DLCapture {
         let capture = DLCapture(
             rawText: rawText,
             audioFilePath: audioFilePath,
             transcript: transcript,
-            source: source
+            source: source,
+            processingStatus: processingStatus
         )
         captures.insert(capture, at: 0)
+        persist()
+        return capture
+    }
+
+    @discardableResult
+    func upsertCapture(_ capture: DLCapture) -> DLCapture {
+        if let index = captures.firstIndex(where: { $0.id == capture.id }) {
+            captures[index] = capture
+        } else {
+            captures.insert(capture, at: 0)
+        }
+
         persist()
         return capture
     }

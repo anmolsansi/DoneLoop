@@ -3,13 +3,13 @@ import Foundation
 @MainActor
 final class AppServices: ObservableObject {
     let localStore = LocalStore()
-    let parser = ParserServiceStub()
+    let aiRouter = AIProviderRouter()
     let calendar = CalendarServiceStub()
     let notifications = NotificationServiceStub()
-}
 
-struct ParserServiceStub {
-    var modeLabel: String { "Rule-based placeholder" }
+    var parserModeLabel: String {
+        aiRouter.modeDetail(for: localStore.settings)
+    }
 }
 
 struct CalendarServiceStub {

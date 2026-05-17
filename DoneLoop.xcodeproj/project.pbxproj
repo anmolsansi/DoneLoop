@@ -21,6 +21,10 @@
 		8A0000010000000000000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000112 /* SettingsView.swift */; };
 		8A0000010000000000000013 /* LocalModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000113 /* LocalModels.swift */; };
 		8A0000010000000000000014 /* LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000114 /* LocalStore.swift */; };
+		8A0000010000000000000015 /* ParserModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000115 /* ParserModels.swift */; };
+		8A0000010000000000000016 /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000116 /* AIProvider.swift */; };
+		8A0000010000000000000017 /* VoiceCaptureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000117 /* VoiceCaptureController.swift */; };
+		8A0000010000000000000018 /* CaptureDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000118 /* CaptureDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +42,10 @@
 		8A0000010000000000000112 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8A0000010000000000000113 /* LocalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModels.swift; sourceTree = "<group>"; };
 		8A0000010000000000000114 /* LocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStore.swift; sourceTree = "<group>"; };
+		8A0000010000000000000115 /* ParserModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParserModels.swift; sourceTree = "<group>"; };
+		8A0000010000000000000116 /* AIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProvider.swift; sourceTree = "<group>"; };
+		8A0000010000000000000117 /* VoiceCaptureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCaptureController.swift; sourceTree = "<group>"; };
+		8A0000010000000000000118 /* CaptureDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDetailView.swift; sourceTree = "<group>"; };
 		8A0000010000000000000201 /* DoneLoop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DoneLoop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -66,6 +74,7 @@
 				8A0000010000000000000101 /* DoneLoopApp.swift */,
 				8A0000010000000000000404 /* App */,
 				8A0000010000000000000414 /* Models */,
+				8A0000010000000000000416 /* AI */,
 				8A0000010000000000000415 /* Storage */,
 				8A0000010000000000000405 /* DesignSystem */,
 				8A0000010000000000000406 /* Features */,
@@ -125,6 +134,8 @@
 			children = (
 				8A0000010000000000000106 /* CaptureView.swift */,
 				8A0000010000000000000107 /* InterpretationPreviewView.swift */,
+				8A0000010000000000000117 /* VoiceCaptureController.swift */,
+				8A0000010000000000000118 /* CaptureDetailView.swift */,
 			);
 			path = Capture;
 			sourceTree = "<group>";
@@ -173,8 +184,17 @@
 			isa = PBXGroup;
 			children = (
 				8A0000010000000000000113 /* LocalModels.swift */,
+				8A0000010000000000000115 /* ParserModels.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		8A0000010000000000000416 /* AI */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000116 /* AIProvider.swift */,
+			);
+			path = AI;
 			sourceTree = "<group>";
 		};
 		8A0000010000000000000415 /* Storage */ = {
@@ -267,6 +287,10 @@
 				8A0000010000000000000012 /* SettingsView.swift in Sources */,
 				8A0000010000000000000013 /* LocalModels.swift in Sources */,
 				8A0000010000000000000014 /* LocalStore.swift in Sources */,
+				8A0000010000000000000015 /* ParserModels.swift in Sources */,
+				8A0000010000000000000016 /* AIProvider.swift in Sources */,
+				8A0000010000000000000017 /* VoiceCaptureController.swift in Sources */,
+				8A0000010000000000000018 /* CaptureDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -399,6 +423,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = DoneLoop;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "DoneLoop uses the microphone to capture spoken tasks and thoughts.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "DoneLoop uses speech recognition to turn voice captures into editable transcripts.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -429,6 +455,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = DoneLoop;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "DoneLoop uses the microphone to capture spoken tasks and thoughts.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "DoneLoop uses speech recognition to turn voice captures into editable transcripts.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
