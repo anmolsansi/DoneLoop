@@ -19,6 +19,8 @@
 		8A0000010000000000000010 /* TaskDetailPlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000110 /* TaskDetailPlaceholderView.swift */; };
 		8A0000010000000000000011 /* ReminderDecisionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000111 /* ReminderDecisionSheet.swift */; };
 		8A0000010000000000000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000112 /* SettingsView.swift */; };
+		8A0000010000000000000013 /* LocalModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000113 /* LocalModels.swift */; };
+		8A0000010000000000000014 /* LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000114 /* LocalStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +36,8 @@
 		8A0000010000000000000110 /* TaskDetailPlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailPlaceholderView.swift; sourceTree = "<group>"; };
 		8A0000010000000000000111 /* ReminderDecisionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderDecisionSheet.swift; sourceTree = "<group>"; };
 		8A0000010000000000000112 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		8A0000010000000000000113 /* LocalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModels.swift; sourceTree = "<group>"; };
+		8A0000010000000000000114 /* LocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStore.swift; sourceTree = "<group>"; };
 		8A0000010000000000000201 /* DoneLoop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DoneLoop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -61,6 +65,8 @@
 			children = (
 				8A0000010000000000000101 /* DoneLoopApp.swift */,
 				8A0000010000000000000404 /* App */,
+				8A0000010000000000000414 /* Models */,
+				8A0000010000000000000415 /* Storage */,
 				8A0000010000000000000405 /* DesignSystem */,
 				8A0000010000000000000406 /* Features */,
 			);
@@ -163,6 +169,22 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		8A0000010000000000000414 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000113 /* LocalModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		8A0000010000000000000415 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000114 /* LocalStore.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -243,6 +265,8 @@
 				8A0000010000000000000010 /* TaskDetailPlaceholderView.swift in Sources */,
 				8A0000010000000000000011 /* ReminderDecisionSheet.swift in Sources */,
 				8A0000010000000000000012 /* SettingsView.swift in Sources */,
+				8A0000010000000000000013 /* LocalModels.swift in Sources */,
+				8A0000010000000000000014 /* LocalStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
