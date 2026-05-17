@@ -7,6 +7,9 @@ struct CaptureView: View {
     @State private var isShowingClearConfirmation = false
     @State private var isShowingInterpretation = false
     @State private var lastSavedCaptureID: UUID?
+    @State private var parserOutput: DLParserOutput?
+    @State private var parseErrorMessage: String?
+    @State private var isParsingCapture = false
 
     let showTaskDetail: () -> Void
     let showDecisionSheet: () -> Void
@@ -64,7 +67,7 @@ struct CaptureView: View {
                             .disabled(voiceCapture.transcript.isEmpty && !voiceCapture.isRecording)
                         Spacer()
                         DLPrimaryButton("Save Voice", systemImage: "waveform") {
-                            saveCapture(text: voiceCapture.transcript, source: .voice)
+                            saveAndParseCapture(text: voiceCapture.transcript, source: .voice)
                             voiceCapture.stop()
                         }
                         .disabled(voiceCapture.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -90,7 +93,7 @@ struct CaptureView: View {
                         .disabled(typedCapture.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         Spacer()
                         DLPrimaryButton("Save / Interpret", systemImage: "wand.and.stars") {
-                            saveCapture(text: typedCapture, source: .text)
+                            saveAndParseCapture(text: typedCapture, source: .text)
                         }
                         .disabled(typedCapture.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
@@ -165,7 +168,13 @@ struct CaptureView: View {
             }
         }
         .sheet(isPresented: $isShowingInterpretation) {
-            InterpretationPreviewView(showTaskDetail: showTaskDetail)
+            InterpretationPreviewView(
+                output: parserOutput,
+                errorMessage: parseErrorMessage,
+                isParsing: isParsingCapture,
+                retry: retryLastCapture,
+                showTaskDetail: showTaskDetail
+            )
                 .presentationDetents([.large])
         }
     }
@@ -178,7 +187,7 @@ struct CaptureView: View {
         }
     }
 
-    private func saveCapture(text: String, source: DLCaptureSource) {
+    private func saveAndParseCapture(text: String, source: DLCaptureSource) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -195,5 +204,58 @@ struct CaptureView: View {
         }
 
         isShowingInterpretation = true
+        parseCapture(capture)
+    }
+
+    private func retryLastCapture() {
+        guard let lastSavedCaptureID, let capture = services.localStore.capture(id: lastSavedCaptureID) else { return }
+        parseCapture(capture)
+    }
+
+    private func parseCapture(_ capture: DLCapture) {
+        parserOutput = nil
+        parseErrorMessage = nil
+        isParsingCapture = true
+
+        Task {
+            let result = await services.aiRouter.parseCommand(
+                DLAIRequest(
+                    input: capture.transcript ?? capture.rawText,
+                    sourceCaptureID: capture.id,
+                    timeZoneIdentifier: services.localStore.settings.timezoneIdentifier
+                ),
+                settings: services.localStore.settings
+            )
+
+            await MainActor.run {
+                isParsingCapture = false
+
+                switch result {
+                case .success(let output):
+                    parserOutput = output
+                    persistParserOutput(output, for: capture)
+                case .failure(let error):
+                    parseErrorMessage = error.localizedDescription
+                    var failedCapture = capture
+                    failedCapture.processingStatus = .failed
+                    services.localStore.upsertCapture(failedCapture)
+                }
+            }
+        }
+    }
+
+    private func persistParserOutput(_ output: DLParserOutput, for capture: DLCapture) {
+        var updatedCapture = capture
+        updatedCapture.processingStatus = output.isValid ? .readyToInterpret : .needsReview
+        updatedCapture.confidenceScore = output.confidence
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        if let data = try? encoder.encode(output) {
+            updatedCapture.aiOutputJSON = String(data: data, encoding: .utf8)
+        }
+
+        services.localStore.upsertCapture(updatedCapture)
     }
 }
