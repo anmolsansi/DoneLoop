@@ -2,48 +2,334 @@ import SwiftUI
 
 struct InterpretationPreviewView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var services: AppServices
+
+    let output: DLParserOutput?
+    let errorMessage: String?
+    let isParsing: Bool
+    let retry: () -> Void
     let showTaskDetail: () -> Void
+
+    @State private var items: [DLParsedItem]
+
+    init(
+        output: DLParserOutput?,
+        errorMessage: String?,
+        isParsing: Bool,
+        retry: @escaping () -> Void,
+        showTaskDetail: @escaping () -> Void
+    ) {
+        self.output = output
+        self.errorMessage = errorMessage
+        self.isParsing = isParsing
+        self.retry = retry
+        self.showTaskDetail = showTaskDetail
+        self._items = State(initialValue: output?.items ?? [])
+    }
+
+    private var currentOutput: DLParserOutput? {
+        guard let output else { return nil }
+        var editedOutput = output
+        editedOutput.items = items
+        return editedOutput
+    }
+
+    private var validationErrors: [String] {
+        currentOutput?.validationErrors() ?? []
+    }
+
+    private var canSave: Bool {
+        !isParsing && errorMessage == nil && currentOutput?.isValid == true
+    }
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: DLSpacing.lg) {
-                Text("Review before saving")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(DLColor.textPrimary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: DLSpacing.lg) {
+                    header
 
-                DLTaskRow(
-                    task: TaskPreview(
-                        title: "Apply to Airbnb",
-                        nextAction: "Open the Airbnb job description",
-                        status: .calendarPending
-                    )
-                )
+                    if isParsing {
+                        ProgressView("Parsing locally...")
+                            .frame(maxWidth: .infinity)
+                            .padding(DLSpacing.xl)
+                            .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
+                    } else if let errorMessage {
+                        errorCard(errorMessage)
+                    } else if items.isEmpty {
+                        emptyOutput
+                    } else {
+                        warningsView
+                        groupedItems
+                        validationView
+                    }
 
-                VStack(alignment: .leading, spacing: DLSpacing.sm) {
-                    Label("Calendar block required", systemImage: "calendar.badge.clock")
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(DLColor.info)
-                    Text("Tomorrow, 10:00 AM to 11:00 AM")
-                        .font(.callout)
-                        .foregroundStyle(DLColor.textSecondary)
+                    HStack(spacing: DLSpacing.md) {
+                        Button("Try Again", action: retry)
+                            .buttonStyle(.bordered)
+                        Spacer()
+                        DLPrimaryButton("Save Items", systemImage: "tray.and.arrow.down") {
+                            saveItems()
+                        }
+                        .disabled(!canSave)
+                    }
                 }
-                .padding(DLSpacing.md)
-                .background(DLColor.infoMuted, in: RoundedRectangle(cornerRadius: DLRadius.md))
-
-                Spacer()
-
-                DLPrimaryButton("Save Items", systemImage: "tray.and.arrow.down") {
-                    dismiss()
-                    showTaskDetail()
-                }
+                .padding(DLSpacing.lg)
             }
-            .padding(DLSpacing.lg)
             .background(DLColor.background)
+            .navigationTitle("Interpretation")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: { dismiss() })
                 }
             }
+        }
+        .onChange(of: output) { _, newOutput in
+            items = newOutput?.items ?? []
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: DLSpacing.sm) {
+            Text("Review before saving")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(DLColor.textPrimary)
+            Text("Parsed locally with the rule-based fallback. Nothing becomes a task, note, reminder, or calendar block until you save.")
+                .font(.callout)
+                .foregroundStyle(DLColor.textSecondary)
+        }
+    }
+
+    private var warningsView: some View {
+        VStack(alignment: .leading, spacing: DLSpacing.xs) {
+            if let output, !output.warnings.isEmpty {
+                ForEach(output.warnings, id: \.self) { warning in
+                    Label(warning, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(DLColor.attention)
+                }
+            }
+        }
+    }
+
+    private var groupedItems: some View {
+        VStack(alignment: .leading, spacing: DLSpacing.lg) {
+            ForEach(DLParsedItemType.allCases, id: \.self) { type in
+                let indices = items.indices.filter { items[$0].type == type }
+                if !indices.isEmpty {
+                    VStack(alignment: .leading, spacing: DLSpacing.sm) {
+                        Text(type.displayName)
+                            .font(.headline)
+                            .foregroundStyle(DLColor.textPrimary)
+
+                        ForEach(indices, id: \.self) { index in
+                            itemCard(item: $items[index])
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var validationView: some View {
+        VStack(alignment: .leading, spacing: DLSpacing.xs) {
+            ForEach(validationErrors, id: \.self) { error in
+                Label(error, systemImage: "xmark.octagon")
+                    .font(.caption)
+                    .foregroundStyle(DLColor.danger)
+            }
+        }
+    }
+
+    private var emptyOutput: some View {
+        DLEmptyState(
+            title: "No items to save",
+            detail: "Try again or cancel this preview.",
+            systemImage: "tray"
+        )
+    }
+
+    private func errorCard(_ message: String) -> some View {
+        VStack(alignment: .leading, spacing: DLSpacing.sm) {
+            Label("Parsing failed", systemImage: "xmark.octagon")
+                .font(.headline)
+                .foregroundStyle(DLColor.danger)
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(DLColor.textSecondary)
+        }
+        .padding(DLSpacing.md)
+        .background(DLColor.dangerMuted, in: RoundedRectangle(cornerRadius: DLRadius.md))
+    }
+
+    private func itemCard(item: Binding<DLParsedItem>) -> some View {
+        VStack(alignment: .leading, spacing: DLSpacing.md) {
+            HStack {
+                Label(item.wrappedValue.type.displayName, systemImage: item.wrappedValue.type.systemImage)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, DLSpacing.sm)
+                    .padding(.vertical, DLSpacing.xs)
+                    .background(DLColor.infoMuted, in: Capsule())
+                    .foregroundStyle(DLColor.info)
+
+                if item.wrappedValue.calendarRequired {
+                    Label("Calendar", systemImage: "calendar.badge.clock")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DLColor.attention)
+                }
+
+                Spacer()
+
+                Button(role: .destructive) {
+                    items.removeAll { $0.id == item.wrappedValue.id }
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .accessibilityLabel("Remove item")
+            }
+
+            TextField("Title", text: item.title)
+                .textFieldStyle(.roundedBorder)
+
+            TextField("Next action", text: optionalText(item.nextAction, defaultValue: ""))
+                .textFieldStyle(.roundedBorder)
+
+            if let scheduleText = scheduleText(for: item.wrappedValue) {
+                Label(scheduleText, systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(DLColor.textSecondary)
+            }
+
+            if item.wrappedValue.needsClarification {
+                Label("Needs clarification", systemImage: "questionmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(DLColor.attention)
+            }
+
+            Text("Confidence \(Int(item.wrappedValue.confidence * 100))%")
+                .font(.caption)
+                .foregroundStyle(DLColor.textTertiary)
+
+            ForEach(item.wrappedValue.warnings, id: \.self) { warning in
+                Label(warning, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(DLColor.attention)
+            }
+        }
+        .padding(DLSpacing.md)
+        .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: DLRadius.md)
+                .stroke(DLColor.divider, lineWidth: 0.5)
+        )
+    }
+
+    private func saveItems() {
+        guard let output = currentOutput, output.isValid else { return }
+
+        for item in output.items {
+            switch item.type {
+            case .task, .reminder, .calendarBlock:
+                services.localStore.upsertTask(
+                    DLTask(
+                        title: item.title,
+                        summary: item.summary,
+                        nextAction: item.nextAction,
+                        status: item.scheduledStart == nil && item.dueDate == nil ? .inbox : .scheduled,
+                        priority: item.priority,
+                        category: item.category,
+                        dueDate: item.dueDate,
+                        dueTime: item.dueTime,
+                        scheduledStart: item.scheduledStart,
+                        scheduledEnd: item.scheduledEnd,
+                        sourceCaptureID: output.sourceCaptureID,
+                        aiProviderUsed: .ruleBased
+                    )
+                )
+            case .note, .brainDump:
+                let now = Date()
+                services.localStore.upsertNote(
+                    DLNote(
+                        id: UUID(),
+                        title: item.title,
+                        content: item.summary ?? item.title,
+                        summary: item.summary,
+                        category: item.category,
+                        sourceCaptureID: output.sourceCaptureID,
+                        createdAt: now,
+                        updatedAt: now
+                    )
+                )
+            case .idea:
+                let now = Date()
+                services.localStore.upsertIdea(
+                    DLIdea(
+                        id: UUID(),
+                        title: item.title,
+                        summary: item.summary,
+                        suggestedNextAction: item.nextAction,
+                        convertedToTaskID: nil,
+                        createdAt: now,
+                        updatedAt: now
+                    )
+                )
+            }
+        }
+
+        if let sourceCaptureID = output.sourceCaptureID, var capture = services.localStore.capture(id: sourceCaptureID) {
+            capture.processingStatus = .saved
+            services.localStore.upsertCapture(capture)
+        }
+
+        dismiss()
+        showTaskDetail()
+    }
+
+    private func optionalText(_ binding: Binding<String?>, defaultValue: String) -> Binding<String> {
+        Binding(
+            get: { binding.wrappedValue ?? defaultValue },
+            set: { newValue in
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                binding.wrappedValue = trimmed.isEmpty ? nil : newValue
+            }
+        )
+    }
+
+    private func scheduleText(for item: DLParsedItem) -> String? {
+        if let scheduledStart = item.scheduledStart {
+            if let scheduledEnd = item.scheduledEnd {
+                return "\(scheduledStart.formatted(date: .abbreviated, time: .shortened)) to \(scheduledEnd.formatted(date: .omitted, time: .shortened))"
+            }
+            return scheduledStart.formatted(date: .abbreviated, time: .shortened)
+        }
+
+        if let dueDate = item.dueDate {
+            return dueDate.formatted(date: .abbreviated, time: .shortened)
+        }
+
+        return nil
+    }
+}
+
+private extension DLParsedItemType {
+    var displayName: String {
+        switch self {
+        case .task: "Task"
+        case .reminder: "Reminder"
+        case .calendarBlock: "Calendar Block"
+        case .note: "Note"
+        case .idea: "Idea"
+        case .brainDump: "Brain Dump"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .task: "checkmark.circle"
+        case .reminder: "bell"
+        case .calendarBlock: "calendar"
+        case .note: "note.text"
+        case .idea: "lightbulb"
+        case .brainDump: "tray.full"
         }
     }
 }
