@@ -10,14 +10,19 @@ struct AppRootView: View {
             NavigationStack {
                 CaptureView(
                     showTaskDetail: { isShowingTaskDetail = true },
-                    showDecisionSheet: { isShowingDecisionSheet = true }
+                    showDecisionSheet: { isShowingDecisionSheet = true },
+                    showToday: { selectedTab = .today },
+                    showInbox: { selectedTab = .inbox }
                 )
             }
             .tabItem { Label(AppTab.capture.title, systemImage: AppTab.capture.symbol) }
             .tag(AppTab.capture)
 
             NavigationStack {
-                TodayView(showTaskDetail: { isShowingTaskDetail = true })
+                TodayView(
+                    showTaskDetail: { isShowingTaskDetail = true },
+                    showCapture: { selectedTab = .capture }
+                )
             }
             .tabItem { Label(AppTab.today.title, systemImage: AppTab.today.symbol) }
             .tag(AppTab.today)
