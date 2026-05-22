@@ -80,6 +80,7 @@ enum DLItemCreationEngine {
                         scheduledStart: item.scheduledStart,
                         scheduledEnd: item.scheduledEnd,
                         calendarEventID: nil,
+                        calendarSyncStatus: item.scheduledStart == nil || item.scheduledEnd == nil ? .notScheduled : .pending,
                         sourceCaptureID: output.sourceCaptureID,
                         aiProviderUsed: provider,
                         createdAt: now,

@@ -43,6 +43,9 @@ struct TaskDetailPlaceholderView: View {
         }
         .confirmationDialog("Delete this task?", isPresented: $isShowingDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Task", role: .destructive) {
+                if services.localStore.task(id: taskID)?.calendarEventID != nil {
+                    _ = services.calendar.deleteEvent(for: taskID, in: services.localStore)
+                }
                 services.localStore.deleteTask(id: taskID)
                 dismiss()
             }
@@ -136,7 +139,12 @@ struct TaskDetailPlaceholderView: View {
                     services.localStore.snoozeTask(id: task.id)
                 }
                 decisionButton("Reschedule", systemImage: "calendar.badge.clock", tint: DLColor.info) {
-                    services.localStore.updateTaskStatus(id: task.id, status: .scheduled)
+                    services.localStore.rescheduleTask(
+                        id: task.id,
+                        start: Date().addingTimeInterval(30 * 60),
+                        durationMinutes: services.localStore.settings.defaultTaskDurationMinutes
+                    )
+                    _ = services.calendar.updateEvent(for: task.id, in: services.localStore)
                 }
                 decisionButton("Break down", systemImage: "arrow.down.right.and.arrow.up.left", tint: DLColor.primary) {
                     services.localStore.updateTaskStatus(id: task.id, status: .inProgress)
@@ -147,6 +155,17 @@ struct TaskDetailPlaceholderView: View {
                 decisionButton("Decision Sheet", systemImage: "checklist", tint: DLColor.primary) {
                     showDecisionSheet()
                 }
+            }
+
+            if task.calendarSyncStatus == .failed || task.calendarSyncStatus == .disconnected || task.calendarEventID == nil && task.scheduledStart != nil {
+                Button {
+                    _ = services.calendar.updateEvent(for: task.id, in: services.localStore)
+                } label: {
+                    Label("Retry Calendar Sync", systemImage: "arrow.clockwise")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, DLSpacing.md)
+                }
+                .buttonStyle(.bordered)
             }
 
             Button(role: .destructive) {
@@ -215,7 +234,13 @@ struct TaskDetailPlaceholderView: View {
     }
 
     private func calendarStatusText(_ task: DLTask) -> String {
-        if task.calendarEventID != nil {
+        if task.calendarSyncStatus == .failed {
+            return task.calendarSyncError ?? "Sync failed"
+        }
+        if task.calendarSyncStatus == .disconnected {
+            return "Calendar disconnected"
+        }
+        if task.calendarEventID != nil || task.calendarSyncStatus == .synced {
             return "Synced"
         }
         if task.scheduledStart != nil {
@@ -247,7 +272,13 @@ private extension DLTask {
         case .inbox:
             return .needsDecision
         case .scheduled, .inProgress, .snoozed:
-            if calendarEventID != nil {
+            if calendarSyncStatus == .failed {
+                return .calendarFailed
+            }
+            if calendarSyncStatus == .disconnected {
+                return .calendarDisconnected
+            }
+            if calendarEventID != nil || calendarSyncStatus == .synced {
                 return .calendarSynced
             }
             if scheduledStart != nil {

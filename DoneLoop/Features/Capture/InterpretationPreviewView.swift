@@ -314,6 +314,7 @@ struct InterpretationPreviewView: View {
 
         switch result {
         case .success(let creationResult):
+            services.calendar.syncScheduledTasks(in: services.localStore)
             self.creationResult = creationResult
             self.saveErrors = []
         case .failure(.validation(let issues)):
