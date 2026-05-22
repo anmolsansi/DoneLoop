@@ -130,6 +130,7 @@ struct InboxView: View {
             HStack(spacing: DLSpacing.sm) {
                 quickAction("Schedule", systemImage: "calendar.badge.plus") {
                     services.localStore.updateTaskStatus(id: task.id, status: .scheduled)
+                    _ = services.calendar.updateEvent(for: task.id, in: services.localStore)
                 }
                 quickAction("Break down", systemImage: "arrow.down.right.and.arrow.up.left") {
                     services.localStore.updateTaskStatus(id: task.id, status: .inProgress)

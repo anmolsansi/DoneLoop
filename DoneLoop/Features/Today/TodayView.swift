@@ -170,7 +170,7 @@ struct TodayView: View {
                         .foregroundStyle(DLColor.textSecondary)
                 }
                 Spacer()
-                DLStatusBadge(status: task.calendarEventID == nil ? .calendarPending : .calendarSynced)
+                DLStatusBadge(status: task.displayStatus)
             }
             .padding(DLSpacing.md)
             .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
@@ -244,7 +244,13 @@ private extension DLTask {
         case .inbox:
             return .needsDecision
         case .scheduled, .inProgress, .snoozed:
-            if calendarEventID != nil {
+            if calendarSyncStatus == .failed {
+                return .calendarFailed
+            }
+            if calendarSyncStatus == .disconnected {
+                return .calendarDisconnected
+            }
+            if calendarEventID != nil || calendarSyncStatus == .synced {
                 return .calendarSynced
             }
             if scheduledStart != nil {

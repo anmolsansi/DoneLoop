@@ -135,10 +135,17 @@ final class LocalStore: ObservableObject {
         return updatedTask
     }
 
+    func updateTask(_ id: UUID, transform: (inout DLTask) -> Void) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        transform(&tasks[index])
+        tasks[index].updatedAt = Date()
+        persist()
+    }
+
     func deleteTask(id: UUID) {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
         tasks[index].status = .deleted
-        tasks[index].calendarEventID = nil
+        tasks[index].calendarSyncStatus = tasks[index].calendarEventID == nil ? .notScheduled : .pending
         tasks[index].updatedAt = Date()
         persist()
     }
@@ -147,7 +154,7 @@ final class LocalStore: ObservableObject {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
         tasks[index].status = status
         if status == .deleted {
-            tasks[index].calendarEventID = nil
+            tasks[index].calendarSyncStatus = tasks[index].calendarEventID == nil ? .notScheduled : .pending
         }
         tasks[index].updatedAt = Date()
         persist()
@@ -160,6 +167,57 @@ final class LocalStore: ObservableObject {
         tasks[index].dueDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
         tasks[index].updatedAt = Date()
         persist()
+    }
+
+    func rescheduleTask(id: UUID, start: Date, durationMinutes: Int) {
+        updateTask(id) { task in
+            task.status = .scheduled
+            task.scheduledStart = start
+            task.scheduledEnd = start.addingTimeInterval(TimeInterval(durationMinutes * 60))
+            task.dueDate = start
+            task.dueTime = start
+            task.calendarSyncStatus = task.calendarEventID == nil ? .pending : task.calendarSyncStatus
+            task.calendarSyncError = nil
+        }
+    }
+
+    func markTaskCalendarSynced(id: UUID, eventID: String) {
+        updateTask(id) { task in
+            task.calendarEventID = eventID
+            task.calendarSyncStatus = .synced
+            task.calendarSyncError = nil
+        }
+    }
+
+    func markTaskCalendarSyncFailed(id: UUID, message: String) {
+        updateTask(id) { task in
+            task.calendarSyncStatus = .failed
+            task.calendarSyncError = message
+        }
+    }
+
+    func markTaskCalendarSyncNotScheduled(id: UUID) {
+        updateTask(id) { task in
+            task.calendarSyncStatus = .notScheduled
+            task.calendarSyncError = nil
+        }
+    }
+
+    func disconnectTaskCalendarEvent(id: UUID) {
+        updateTask(id) { task in
+            task.calendarEventID = nil
+            task.calendarSyncStatus = task.scheduledStart == nil ? .notScheduled : .pending
+            task.calendarSyncError = nil
+        }
+    }
+
+    func markSyncedCalendarTasksDisconnected() {
+        for task in tasks where task.calendarEventID != nil || task.calendarSyncStatus == .synced {
+            updateTask(task.id) { updatedTask in
+                updatedTask.calendarSyncStatus = .disconnected
+                updatedTask.calendarSyncError = nil
+            }
+        }
     }
 
     func deleteCapture(id: UUID) {
@@ -331,7 +389,11 @@ private extension DLStatus {
         case .inbox:
             self = .notScheduled
         case .scheduled, .inProgress, .snoozed:
-            if task.calendarEventID != nil {
+            if task.calendarSyncStatus == .failed {
+                self = .calendarFailed
+            } else if task.calendarSyncStatus == .disconnected {
+                self = .calendarDisconnected
+            } else if task.calendarEventID != nil || task.calendarSyncStatus == .synced {
                 self = .calendarSynced
             } else if task.scheduledStart != nil {
                 self = .calendarPending
