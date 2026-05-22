@@ -13,6 +13,8 @@ struct CaptureView: View {
 
     let showTaskDetail: () -> Void
     let showDecisionSheet: () -> Void
+    let showToday: () -> Void
+    let showInbox: () -> Void
 
     var body: some View {
         ScrollView {
@@ -173,7 +175,9 @@ struct CaptureView: View {
                 errorMessage: parseErrorMessage,
                 isParsing: isParsingCapture,
                 retry: retryLastCapture,
-                showTaskDetail: showTaskDetail
+                showTaskDetail: showTaskDetail,
+                showToday: showToday,
+                showInbox: showInbox
             )
                 .presentationDetents([.large])
         }
@@ -246,7 +250,7 @@ struct CaptureView: View {
 
     private func persistParserOutput(_ output: DLParserOutput, for capture: DLCapture) {
         var updatedCapture = capture
-        updatedCapture.processingStatus = output.isValid ? .readyToInterpret : .needsReview
+        updatedCapture.processingStatus = DLParserOutputValidator.validate(output).canSave ? .readyToInterpret : .needsReview
         updatedCapture.confidenceScore = output.confidence
 
         let encoder = JSONEncoder()
