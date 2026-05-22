@@ -4,7 +4,7 @@ struct AppRootView: View {
     @EnvironmentObject private var services: AppServices
     @State private var selectedTab: AppTab = .capture
     @State private var selectedTask: SelectedTask?
-    @State private var isShowingDecisionSheet = false
+    @State private var decisionTask: SelectedTask?
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -15,7 +15,7 @@ struct AppRootView: View {
                             selectedTask = SelectedTask(id: taskID)
                         }
                     },
-                    showDecisionSheet: { isShowingDecisionSheet = true },
+                    showDecisionSheet: { showDecisionSheetForFirstTask() },
                     showToday: { selectedTab = .today },
                     showInbox: { selectedTab = .inbox }
                 )
@@ -48,16 +48,35 @@ struct AppRootView: View {
         .sheet(item: $selectedTask) { selectedTask in
             NavigationStack {
                 TaskDetailPlaceholderView(taskID: selectedTask.id, showDecisionSheet: {
+                    decisionTask = selectedTask
                     self.selectedTask = nil
-                    isShowingDecisionSheet = true
                 })
             }
             .presentationDetents([.large])
         }
-        .sheet(isPresented: $isShowingDecisionSheet) {
-            ReminderDecisionSheet()
+        .sheet(item: $decisionTask) { selectedTask in
+            ReminderDecisionSheet(taskID: selectedTask.id)
                 .presentationDetents([.medium, .large])
         }
+        .onAppear {
+            services.notifications.refreshAuthorizationStatus(store: services.localStore)
+        }
+        .onChange(of: services.notifications.openedTaskID) { _, taskID in
+            guard let taskID else { return }
+            if let task = services.localStore.task(id: taskID), task.status != .done && task.status != .deleted {
+                selectedTab = .today
+                selectedTask = nil
+                decisionTask = SelectedTask(id: taskID)
+            } else {
+                selectedTab = .today
+            }
+            services.notifications.consumeOpenedTaskID()
+        }
+    }
+
+    private func showDecisionSheetForFirstTask() {
+        guard let task = services.localStore.tasks.first(where: { $0.status != .done && $0.status != .deleted }) else { return }
+        decisionTask = SelectedTask(id: task.id)
     }
 }
 

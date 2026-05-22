@@ -131,14 +131,17 @@ struct InboxView: View {
                 quickAction("Schedule", systemImage: "calendar.badge.plus") {
                     services.localStore.updateTaskStatus(id: task.id, status: .scheduled)
                     _ = services.calendar.updateEvent(for: task.id, in: services.localStore)
+                    _ = services.notifications.scheduleReminder(for: task.id, in: services.localStore)
                 }
                 quickAction("Break down", systemImage: "arrow.down.right.and.arrow.up.left") {
-                    services.localStore.updateTaskStatus(id: task.id, status: .inProgress)
+                    _ = services.localStore.shrinkTask(id: task.id)
                 }
                 quickAction("Blocked", systemImage: "hand.raised") {
+                    services.notifications.cancelReminder(for: task.id, in: services.localStore)
                     services.localStore.updateTaskStatus(id: task.id, status: .blocked)
                 }
                 Button(role: .destructive) {
+                    services.notifications.cancelReminder(for: task.id, in: services.localStore)
                     services.localStore.deleteTask(id: task.id)
                 } label: {
                     Image(systemName: "trash")

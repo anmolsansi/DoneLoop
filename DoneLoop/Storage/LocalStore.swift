@@ -146,6 +146,9 @@ final class LocalStore: ObservableObject {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
         tasks[index].status = .deleted
         tasks[index].calendarSyncStatus = tasks[index].calendarEventID == nil ? .notScheduled : .pending
+        tasks[index].notificationStatus = .notScheduled
+        tasks[index].notificationID = nil
+        tasks[index].notificationError = nil
         tasks[index].updatedAt = Date()
         persist()
     }
@@ -156,15 +159,25 @@ final class LocalStore: ObservableObject {
         if status == .deleted {
             tasks[index].calendarSyncStatus = tasks[index].calendarEventID == nil ? .notScheduled : .pending
         }
+        if status == .done || status == .deleted {
+            tasks[index].notificationStatus = .notScheduled
+            tasks[index].notificationID = nil
+            tasks[index].notificationError = nil
+        }
         tasks[index].updatedAt = Date()
         persist()
     }
 
-    func snoozeTask(id: UUID, minutes: Int = 30) {
+    func snoozeTask(id: UUID, minutes: Int? = nil) {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        let snoozeMinutes = minutes ?? settings.defaultSnoozeMinutes
         tasks[index].status = .snoozed
         tasks[index].snoozeCount += 1
-        tasks[index].dueDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        tasks[index].dueDate = Date().addingTimeInterval(TimeInterval(snoozeMinutes * 60))
+        tasks[index].dueTime = tasks[index].dueDate
+        tasks[index].notificationStatus = .pendingPermission
+        tasks[index].notificationID = nil
+        tasks[index].notificationError = nil
         tasks[index].updatedAt = Date()
         persist()
     }
@@ -178,7 +191,56 @@ final class LocalStore: ObservableObject {
             task.dueTime = start
             task.calendarSyncStatus = task.calendarEventID == nil ? .pending : task.calendarSyncStatus
             task.calendarSyncError = nil
+            task.notificationStatus = .pendingPermission
+            task.notificationID = nil
+            task.notificationError = nil
         }
+    }
+
+    func markTaskNotificationScheduled(id: UUID, notificationID: String) {
+        updateTask(id) { task in
+            task.notificationID = notificationID
+            task.notificationStatus = .scheduled
+            task.notificationError = nil
+        }
+    }
+
+    func markTaskNotificationNotScheduled(id: UUID) {
+        updateTask(id) { task in
+            task.notificationID = nil
+            task.notificationStatus = .notScheduled
+            task.notificationError = nil
+        }
+    }
+
+    func markTaskNotificationPermissionDenied(id: UUID) {
+        updateTask(id) { task in
+            task.notificationID = nil
+            task.notificationStatus = .permissionDenied
+            task.notificationError = "Notification permission is denied."
+        }
+    }
+
+    func markTaskNotificationFailed(id: UUID, message: String) {
+        updateTask(id) { task in
+            task.notificationID = nil
+            task.notificationStatus = .failed
+            task.notificationError = message
+        }
+    }
+
+    @discardableResult
+    func shrinkTask(id: UUID) -> DLTask? {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return nil }
+        let current = tasks[index]
+        let suggestion = Self.shrinkSuggestion(for: current)
+        tasks[index].title = suggestion.title
+        tasks[index].nextAction = suggestion.nextAction
+        tasks[index].summary = suggestion.summary
+        tasks[index].status = .inProgress
+        tasks[index].updatedAt = Date()
+        persist()
+        return tasks[index]
     }
 
     func markTaskCalendarSynced(id: UUID, eventID: String) {
@@ -322,6 +384,51 @@ final class LocalStore: ObservableObject {
         let lhsDate = lhs.scheduledStart ?? lhs.dueDate ?? lhs.updatedAt
         let rhsDate = rhs.scheduledStart ?? rhs.dueDate ?? rhs.updatedAt
         return lhsDate < rhsDate
+    }
+}
+
+private extension LocalStore {
+    static func shrinkSuggestion(for task: DLTask) -> (title: String, summary: String, nextAction: String) {
+        let title = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowercased = title.lowercased()
+
+        if lowercased.contains("5 jobs") || lowercased.contains("five jobs") {
+            return (
+                "Apply to 1 job",
+                "Smaller version of: \(title)",
+                "Open one saved job link."
+            )
+        }
+
+        if lowercased.contains("jobs") {
+            return (
+                "Apply to 1 job",
+                "Smaller version of: \(title)",
+                "Open one job link and start the application."
+            )
+        }
+
+        if lowercased.contains("resume") {
+            return (
+                "Improve one resume section",
+                "Smaller version of: \(title)",
+                "Open the resume and edit one bullet."
+            )
+        }
+
+        if lowercased.contains("email") {
+            return (
+                "Draft the first email line",
+                "Smaller version of: \(title)",
+                "Open the email draft and write the first sentence."
+            )
+        }
+
+        return (
+            "Start: \(title.isEmpty ? "this task" : title)",
+            "Smaller version of: \(title.isEmpty ? "Untitled task" : title)",
+            task.nextAction?.nonEmpty ?? "Do the first visible two-minute step."
+        )
     }
 }
 

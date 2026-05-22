@@ -66,7 +66,25 @@ struct SettingsView: View {
 
             Section("Reminders") {
                 Toggle("Enable local reminders", isOn: remindersBinding)
-                settingsRow(title: "Permission", detail: services.notifications.permissionLabel, symbol: "bell", status: .needsDecision)
+                settingsRow(
+                    title: "Permission",
+                    detail: services.localStore.settings.notificationPermissionStatus.displayName,
+                    symbol: reminderPermissionSymbol,
+                    status: reminderPermissionStatus
+                )
+                Stepper(value: defaultSnoozeBinding, in: 5...180, step: 5) {
+                    settingsRow(
+                        title: "Default snooze",
+                        detail: "\(services.localStore.settings.defaultSnoozeMinutes) minutes",
+                        symbol: "moon",
+                        status: .notScheduled
+                    )
+                }
+                Button {
+                    services.notifications.requestPermission(store: services.localStore)
+                } label: {
+                    Label("Request Notification Permission", systemImage: "bell.badge")
+                }
             }
 
             Section("Privacy") {
@@ -120,8 +138,15 @@ struct SettingsView: View {
         Binding(
             get: { services.localStore.settings.remindersEnabled },
             set: { enabled in
-                services.localStore.updateSettings { settings in
-                    settings.remindersEnabled = enabled
+                if enabled {
+                    services.notifications.requestPermission(store: services.localStore)
+                } else {
+                    services.localStore.updateSettings { settings in
+                        settings.remindersEnabled = false
+                    }
+                    for task in services.localStore.tasks {
+                        services.notifications.cancelReminder(for: task.id, in: services.localStore)
+                    }
                 }
             }
         )
@@ -160,6 +185,17 @@ struct SettingsView: View {
         )
     }
 
+    private var defaultSnoozeBinding: Binding<Int> {
+        Binding(
+            get: { services.localStore.settings.defaultSnoozeMinutes },
+            set: { minutes in
+                services.localStore.updateSettings { settings in
+                    settings.defaultSnoozeMinutes = minutes
+                }
+            }
+        )
+    }
+
     private var calendarConnectionDetail: String {
         let settings = services.localStore.settings
         switch settings.googleCalendarConnectionStatus {
@@ -193,6 +229,22 @@ struct SettingsView: View {
         case .connected: .calendarSynced
         case .disconnected: .calendarDisconnected
         case .permissionDenied, .tokenExpired, .networkUnavailable: .calendarFailed
+        }
+    }
+
+    private var reminderPermissionSymbol: String {
+        switch services.localStore.settings.notificationPermissionStatus {
+        case .notDetermined: "bell"
+        case .granted, .provisional: "bell.badge"
+        case .denied: "bell.slash"
+        }
+    }
+
+    private var reminderPermissionStatus: DLStatus {
+        switch services.localStore.settings.notificationPermissionStatus {
+        case .granted, .provisional: .calendarSynced
+        case .notDetermined: .needsDecision
+        case .denied: .calendarFailed
         }
     }
 
