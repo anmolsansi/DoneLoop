@@ -64,6 +64,10 @@ final class LocalStore: ObservableObject {
         captures.first { $0.id == id }
     }
 
+    func task(id: UUID) -> DLTask? {
+        tasks.first { $0.id == id }
+    }
+
     var todayTasks: [TaskPreview] {
         let today = Calendar.current.startOfDay(for: Date())
         return tasks
@@ -135,6 +139,25 @@ final class LocalStore: ObservableObject {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
         tasks[index].status = .deleted
         tasks[index].calendarEventID = nil
+        tasks[index].updatedAt = Date()
+        persist()
+    }
+
+    func updateTaskStatus(id: UUID, status: DLTaskStatus) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        tasks[index].status = status
+        if status == .deleted {
+            tasks[index].calendarEventID = nil
+        }
+        tasks[index].updatedAt = Date()
+        persist()
+    }
+
+    func snoozeTask(id: UUID, minutes: Int = 30) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        tasks[index].status = .snoozed
+        tasks[index].snoozeCount += 1
+        tasks[index].dueDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
         tasks[index].updatedAt = Date()
         persist()
     }

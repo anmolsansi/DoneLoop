@@ -102,7 +102,7 @@ enum DLItemCreationEngine {
                         title: item.title.trimmingCharacters(in: .whitespacesAndNewlines),
                         content: item.summary ?? item.title,
                         summary: item.summary,
-                        category: item.category,
+                        category: item.type == .brainDump ? "brain_dump" : item.category,
                         sourceCaptureID: output.sourceCaptureID,
                         createdAt: now,
                         updatedAt: now

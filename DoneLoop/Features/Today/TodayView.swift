@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TodayView: View {
     @EnvironmentObject private var services: AppServices
-    let showTaskDetail: () -> Void
+    let showTaskDetail: (UUID) -> Void
     let showCapture: () -> Void
 
     private var todayTasks: [DLTask] {
@@ -142,7 +142,7 @@ struct TodayView: View {
     }
 
     private func taskButton(_ task: DLTask, statusOverride: DLStatus? = nil) -> some View {
-        Button(action: showTaskDetail) {
+        Button(action: { showTaskDetail(task.id) }) {
             DLTaskRow(
                 task: TaskPreview(
                     id: task.id,
@@ -156,7 +156,7 @@ struct TodayView: View {
     }
 
     private func calendarBlockRow(_ task: DLTask) -> some View {
-        Button(action: showTaskDetail) {
+        Button(action: { showTaskDetail(task.id) }) {
             HStack(alignment: .top, spacing: DLSpacing.md) {
                 VStack(alignment: .leading, spacing: DLSpacing.xs) {
                     Text(timeRange(for: task))

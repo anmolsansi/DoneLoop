@@ -1,15 +1,20 @@
 import SwiftUI
 
 struct AppRootView: View {
+    @EnvironmentObject private var services: AppServices
     @State private var selectedTab: AppTab = .capture
-    @State private var isShowingTaskDetail = false
+    @State private var selectedTask: SelectedTask?
     @State private var isShowingDecisionSheet = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
                 CaptureView(
-                    showTaskDetail: { isShowingTaskDetail = true },
+                    showTaskDetail: {
+                        if let taskID = services.localStore.tasks.first?.id {
+                            selectedTask = SelectedTask(id: taskID)
+                        }
+                    },
                     showDecisionSheet: { isShowingDecisionSheet = true },
                     showToday: { selectedTab = .today },
                     showInbox: { selectedTab = .inbox }
@@ -20,7 +25,7 @@ struct AppRootView: View {
 
             NavigationStack {
                 TodayView(
-                    showTaskDetail: { isShowingTaskDetail = true },
+                    showTaskDetail: { selectedTask = SelectedTask(id: $0) },
                     showCapture: { selectedTab = .capture }
                 )
             }
@@ -28,7 +33,7 @@ struct AppRootView: View {
             .tag(AppTab.today)
 
             NavigationStack {
-                InboxView(showTaskDetail: { isShowingTaskDetail = true })
+                InboxView(showTaskDetail: { selectedTask = SelectedTask(id: $0) })
             }
             .tabItem { Label(AppTab.inbox.title, systemImage: AppTab.inbox.symbol) }
             .tag(AppTab.inbox)
@@ -40,10 +45,10 @@ struct AppRootView: View {
             .tag(AppTab.settings)
         }
         .tint(DLColor.primary)
-        .sheet(isPresented: $isShowingTaskDetail) {
+        .sheet(item: $selectedTask) { selectedTask in
             NavigationStack {
-                TaskDetailPlaceholderView(showDecisionSheet: {
-                    isShowingTaskDetail = false
+                TaskDetailPlaceholderView(taskID: selectedTask.id, showDecisionSheet: {
+                    self.selectedTask = nil
                     isShowingDecisionSheet = true
                 })
             }
@@ -54,6 +59,10 @@ struct AppRootView: View {
                 .presentationDetents([.medium, .large])
         }
     }
+}
+
+private struct SelectedTask: Identifiable {
+    let id: UUID
 }
 
 struct AppRootView_Previews: PreviewProvider {
