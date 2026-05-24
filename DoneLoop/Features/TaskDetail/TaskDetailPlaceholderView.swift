@@ -46,6 +46,7 @@ struct TaskDetailPlaceholderView: View {
                 if services.localStore.task(id: taskID)?.calendarEventID != nil {
                     _ = services.calendar.deleteEvent(for: taskID, in: services.localStore)
                 }
+                services.notifications.cancelReminder(for: taskID, in: services.localStore)
                 services.localStore.deleteTask(id: taskID)
                 dismiss()
             }
@@ -96,6 +97,7 @@ struct TaskDetailPlaceholderView: View {
             detailRow("Start", value: formattedDateTime(task.scheduledStart) ?? "Not scheduled", systemImage: "calendar")
             detailRow("End", value: formattedDateTime(task.scheduledEnd) ?? "Not scheduled", systemImage: "calendar.badge.clock")
             detailRow("Calendar", value: calendarStatusText(task), systemImage: "calendar.circle")
+            detailRow("Reminder", value: reminderStatusText(task), systemImage: "bell")
         }
     }
 
@@ -132,11 +134,13 @@ struct TaskDetailPlaceholderView: View {
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DLSpacing.sm) {
                 decisionButton("Done", systemImage: "checkmark.circle.fill", tint: DLColor.success) {
+                    services.notifications.cancelReminder(for: task.id, in: services.localStore)
                     services.localStore.updateTaskStatus(id: task.id, status: .done)
                     dismiss()
                 }
                 decisionButton("Snooze 30m", systemImage: "moon.fill", tint: DLColor.info) {
                     services.localStore.snoozeTask(id: task.id)
+                    _ = services.notifications.scheduleReminder(for: task.id, in: services.localStore)
                 }
                 decisionButton("Reschedule", systemImage: "calendar.badge.clock", tint: DLColor.info) {
                     services.localStore.rescheduleTask(
@@ -145,16 +149,34 @@ struct TaskDetailPlaceholderView: View {
                         durationMinutes: services.localStore.settings.defaultTaskDurationMinutes
                     )
                     _ = services.calendar.updateEvent(for: task.id, in: services.localStore)
+                    _ = services.notifications.scheduleReminder(for: task.id, in: services.localStore)
                 }
                 decisionButton("Break down", systemImage: "arrow.down.right.and.arrow.up.left", tint: DLColor.primary) {
-                    services.localStore.updateTaskStatus(id: task.id, status: .inProgress)
+                    _ = services.localStore.shrinkTask(id: task.id)
                 }
                 decisionButton("Blocked", systemImage: "hand.raised.fill", tint: DLColor.attention) {
+                    services.notifications.cancelReminder(for: task.id, in: services.localStore)
                     services.localStore.updateTaskStatus(id: task.id, status: .blocked)
                 }
                 decisionButton("Decision Sheet", systemImage: "checklist", tint: DLColor.primary) {
                     showDecisionSheet()
                 }
+            }
+
+            if task.snoozeCount >= 2 && task.status != .blocked {
+                VStack(alignment: .leading, spacing: DLSpacing.sm) {
+                    Text("You have avoided this twice. Want a smaller version?")
+                        .font(.headline)
+                        .foregroundStyle(DLColor.textPrimary)
+                    Text("Break down keeps the original task local and replaces it with the smallest clear next action.")
+                        .font(.callout)
+                        .foregroundStyle(DLColor.textSecondary)
+                    DLPrimaryButton("Shrink Task", systemImage: "arrow.down.right") {
+                        _ = services.localStore.shrinkTask(id: task.id)
+                    }
+                }
+                .padding(DLSpacing.md)
+                .background(DLColor.attentionMuted, in: RoundedRectangle(cornerRadius: DLRadius.md))
             }
 
             if task.calendarSyncStatus == .failed || task.calendarSyncStatus == .disconnected || task.calendarEventID == nil && task.scheduledStart != nil {
@@ -247,6 +269,19 @@ struct TaskDetailPlaceholderView: View {
             return services.localStore.settings.googleCalendarID == nil ? "Disconnected" : "Calendar pending"
         }
         return "Not scheduled"
+    }
+
+    private func reminderStatusText(_ task: DLTask) -> String {
+        if let error = task.notificationError.nonEmpty {
+            return error
+        }
+        if task.notificationStatus == .scheduled, let date = task.scheduledStart ?? task.dueDate ?? task.dueTime {
+            return "Scheduled for \(date.formatted(date: .abbreviated, time: .shortened))"
+        }
+        if services.localStore.settings.notificationPermissionStatus == .denied {
+            return "Notification permission denied"
+        }
+        return task.notificationStatus.displayName
     }
 
     private func formattedDate(_ date: Date?) -> String? {

@@ -96,6 +96,40 @@ enum DLCalendarSyncStatus: String, Codable, CaseIterable {
     }
 }
 
+enum DLNotificationPermissionStatus: String, Codable, CaseIterable {
+    case notDetermined
+    case granted
+    case denied
+    case provisional
+
+    var displayName: String {
+        switch self {
+        case .notDetermined: "Not requested"
+        case .granted: "Allowed"
+        case .denied: "Denied"
+        case .provisional: "Quiet delivery"
+        }
+    }
+}
+
+enum DLNotificationScheduleStatus: String, Codable, CaseIterable {
+    case notScheduled
+    case pendingPermission
+    case scheduled
+    case permissionDenied
+    case failed
+
+    var displayName: String {
+        switch self {
+        case .notScheduled: "No reminder"
+        case .pendingPermission: "Permission needed"
+        case .scheduled: "Reminder scheduled"
+        case .permissionDenied: "Reminders denied"
+        case .failed: "Reminder failed"
+        }
+    }
+}
+
 struct DLTask: Identifiable, Codable, Equatable {
     var id: UUID
     var title: String
@@ -111,6 +145,9 @@ struct DLTask: Identifiable, Codable, Equatable {
     var calendarEventID: String?
     var calendarSyncStatus: DLCalendarSyncStatus
     var calendarSyncError: String?
+    var notificationID: String?
+    var notificationStatus: DLNotificationScheduleStatus
+    var notificationError: String?
     var snoozeCount: Int
     var missedCount: Int
     var sourceCaptureID: UUID?
@@ -134,6 +171,9 @@ struct DLTask: Identifiable, Codable, Equatable {
         calendarEventID: String? = nil,
         calendarSyncStatus: DLCalendarSyncStatus = .notScheduled,
         calendarSyncError: String? = nil,
+        notificationID: String? = nil,
+        notificationStatus: DLNotificationScheduleStatus = .notScheduled,
+        notificationError: String? = nil,
         snoozeCount: Int = 0,
         missedCount: Int = 0,
         sourceCaptureID: UUID? = nil,
@@ -156,6 +196,9 @@ struct DLTask: Identifiable, Codable, Equatable {
         self.calendarEventID = calendarEventID
         self.calendarSyncStatus = calendarSyncStatus
         self.calendarSyncError = calendarSyncError
+        self.notificationID = notificationID
+        self.notificationStatus = notificationStatus
+        self.notificationError = notificationError
         self.snoozeCount = snoozeCount
         self.missedCount = missedCount
         self.sourceCaptureID = sourceCaptureID
@@ -180,6 +223,9 @@ struct DLTask: Identifiable, Codable, Equatable {
         case calendarEventID
         case calendarSyncStatus
         case calendarSyncError
+        case notificationID
+        case notificationStatus
+        case notificationError
         case snoozeCount
         case missedCount
         case sourceCaptureID
@@ -206,6 +252,10 @@ struct DLTask: Identifiable, Codable, Equatable {
         self.calendarSyncStatus = try container.decodeIfPresent(DLCalendarSyncStatus.self, forKey: .calendarSyncStatus)
             ?? (self.calendarEventID == nil ? .notScheduled : .synced)
         self.calendarSyncError = try container.decodeIfPresent(String.self, forKey: .calendarSyncError)
+        self.notificationID = try container.decodeIfPresent(String.self, forKey: .notificationID)
+        self.notificationStatus = try container.decodeIfPresent(DLNotificationScheduleStatus.self, forKey: .notificationStatus)
+            ?? (self.notificationID == nil ? .notScheduled : .scheduled)
+        self.notificationError = try container.decodeIfPresent(String.self, forKey: .notificationError)
         self.snoozeCount = try container.decode(Int.self, forKey: .snoozeCount)
         self.missedCount = try container.decode(Int.self, forKey: .missedCount)
         self.sourceCaptureID = try container.decodeIfPresent(UUID.self, forKey: .sourceCaptureID)
@@ -315,6 +365,8 @@ struct DLUserSettings: Codable, Equatable {
     var googleCalendarAccountEmail: String?
     var googleCalendarName: String?
     var googleCalendarConnectionStatus: DLGoogleCalendarConnectionStatus
+    var notificationPermissionStatus: DLNotificationPermissionStatus
+    var defaultSnoozeMinutes: Int
     var createdAt: Date
     var updatedAt: Date
 
@@ -333,6 +385,8 @@ struct DLUserSettings: Codable, Equatable {
             googleCalendarAccountEmail: nil,
             googleCalendarName: nil,
             googleCalendarConnectionStatus: .disconnected,
+            notificationPermissionStatus: .notDetermined,
+            defaultSnoozeMinutes: 30,
             createdAt: now,
             updatedAt: now
         )
@@ -352,6 +406,8 @@ struct DLUserSettings: Codable, Equatable {
         case googleCalendarAccountEmail
         case googleCalendarName
         case googleCalendarConnectionStatus
+        case notificationPermissionStatus
+        case defaultSnoozeMinutes
         case createdAt
         case updatedAt
     }
@@ -370,6 +426,8 @@ struct DLUserSettings: Codable, Equatable {
         googleCalendarAccountEmail: String?,
         googleCalendarName: String?,
         googleCalendarConnectionStatus: DLGoogleCalendarConnectionStatus,
+        notificationPermissionStatus: DLNotificationPermissionStatus,
+        defaultSnoozeMinutes: Int,
         createdAt: Date,
         updatedAt: Date
     ) {
@@ -386,6 +444,8 @@ struct DLUserSettings: Codable, Equatable {
         self.googleCalendarAccountEmail = googleCalendarAccountEmail
         self.googleCalendarName = googleCalendarName
         self.googleCalendarConnectionStatus = googleCalendarConnectionStatus
+        self.notificationPermissionStatus = notificationPermissionStatus
+        self.defaultSnoozeMinutes = defaultSnoozeMinutes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -407,6 +467,10 @@ struct DLUserSettings: Codable, Equatable {
         self.googleCalendarName = try container.decodeIfPresent(String.self, forKey: .googleCalendarName)
         self.googleCalendarConnectionStatus = try container.decodeIfPresent(DLGoogleCalendarConnectionStatus.self, forKey: .googleCalendarConnectionStatus)
             ?? (self.googleCalendarID == nil ? .disconnected : .connected)
+        self.notificationPermissionStatus = try container.decodeIfPresent(DLNotificationPermissionStatus.self, forKey: .notificationPermissionStatus)
+            ?? defaults.notificationPermissionStatus
+        self.defaultSnoozeMinutes = try container.decodeIfPresent(Int.self, forKey: .defaultSnoozeMinutes)
+            ?? defaults.defaultSnoozeMinutes
         self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? defaults.createdAt
         self.updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? defaults.updatedAt
     }

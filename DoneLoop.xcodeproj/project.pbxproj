@@ -28,6 +28,9 @@
 		8A0000010000000000000019 /* ParserOutputValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000119 /* ParserOutputValidator.swift */; };
 		8A0000010000000000000020 /* ItemCreationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000120 /* ItemCreationEngine.swift */; };
 		8A0000010000000000000021 /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000121 /* CalendarService.swift */; };
+		8A0000010000000000000022 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000122 /* NotificationService.swift */; };
+		8A0000010000000000000023 /* V2BacklogFoundation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000123 /* V2BacklogFoundation.swift */; };
+		8A0000010000000000000024 /* V3ProductionFoundation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000124 /* V3ProductionFoundation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -52,6 +55,9 @@
 		8A0000010000000000000119 /* ParserOutputValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParserOutputValidator.swift; sourceTree = "<group>"; };
 		8A0000010000000000000120 /* ItemCreationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemCreationEngine.swift; sourceTree = "<group>"; };
 		8A0000010000000000000121 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarService.swift; sourceTree = "<group>"; };
+		8A0000010000000000000122 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		8A0000010000000000000123 /* V2BacklogFoundation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V2BacklogFoundation.swift; sourceTree = "<group>"; };
+		8A0000010000000000000124 /* V3ProductionFoundation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V3ProductionFoundation.swift; sourceTree = "<group>"; };
 		8A0000010000000000000201 /* DoneLoop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DoneLoop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -84,6 +90,9 @@
 				8A0000010000000000000417 /* Validation */,
 				8A0000010000000000000418 /* Creation */,
 				8A0000010000000000000419 /* Calendar */,
+				8A0000010000000000000420 /* Notifications */,
+				8A0000010000000000000421 /* V2 */,
+				8A0000010000000000000422 /* V3 */,
 				8A0000010000000000000415 /* Storage */,
 				8A0000010000000000000405 /* DesignSystem */,
 				8A0000010000000000000406 /* Features */,
@@ -230,6 +239,30 @@
 			path = Calendar;
 			sourceTree = "<group>";
 		};
+		8A0000010000000000000420 /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000122 /* NotificationService.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
+		8A0000010000000000000421 /* V2 */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000123 /* V2BacklogFoundation.swift */,
+			);
+			path = V2;
+			sourceTree = "<group>";
+		};
+		8A0000010000000000000422 /* V3 */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000124 /* V3ProductionFoundation.swift */,
+			);
+			path = V3;
+			sourceTree = "<group>";
+		};
 		8A0000010000000000000415 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
@@ -327,6 +360,9 @@
 				8A0000010000000000000019 /* ParserOutputValidator.swift in Sources */,
 				8A0000010000000000000020 /* ItemCreationEngine.swift in Sources */,
 				8A0000010000000000000021 /* CalendarService.swift in Sources */,
+				8A0000010000000000000022 /* NotificationService.swift in Sources */,
+				8A0000010000000000000023 /* V2BacklogFoundation.swift in Sources */,
+				8A0000010000000000000024 /* V3ProductionFoundation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
