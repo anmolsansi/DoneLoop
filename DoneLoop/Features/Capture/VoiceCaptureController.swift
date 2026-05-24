@@ -28,6 +28,7 @@ final class VoiceCaptureController: ObservableObject {
     private let speechRecognizer = SFSpeechRecognizer()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    private var hasInstalledInputTap = false
 
     var isRecording: Bool {
         state == .recording
@@ -35,6 +36,12 @@ final class VoiceCaptureController: ObservableObject {
 
     func start() {
         guard !isRecording else { return }
+
+        if shouldUseSimulatorVoiceFallback {
+            state = .failed("Voice input is not available in this simulator.")
+            return
+        }
+
         state = .requestingPermission
 
         Task {
@@ -46,7 +53,7 @@ final class VoiceCaptureController: ObservableObject {
 
     func stop() {
         audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
+        removeInputTapIfNeeded()
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
         recognitionTask = nil
@@ -92,8 +99,31 @@ final class VoiceCaptureController: ObservableObject {
     }
 
     private func beginRecording() {
+        guard speechRecognizer?.isAvailable == true else {
+            state = .failed("Speech recognition is not available right now.")
+            return
+        }
+
+        if shouldUseSimulatorVoiceFallback {
+            recognitionRequest = nil
+            state = .failed("Voice input is not available in this simulator.")
+            return
+        }
+
+        do {
+            #if os(iOS)
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            #endif
+        } catch {
+            state = .failed("Voice capture could not start.")
+            return
+        }
+
         recognitionTask?.cancel()
         recognitionTask = nil
+        removeInputTapIfNeeded()
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -104,21 +134,26 @@ final class VoiceCaptureController: ObservableObject {
 
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.removeTap(onBus: 0)
+
+        guard recordingFormat.sampleRate > 0, recordingFormat.channelCount > 0 else {
+            recognitionRequest = nil
+            state = .failed("Voice input is not available.")
+            return
+        }
+
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak request] buffer, _ in
             request?.append(buffer)
         }
+        hasInstalledInputTap = true
 
         audioEngine.prepare()
 
         do {
-            #if os(iOS)
-            try AVAudioSession.sharedInstance().setCategory(.record, mode: .measurement, options: .duckOthers)
-            try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
-            #endif
             try audioEngine.start()
             state = .recording
         } catch {
+            removeInputTapIfNeeded()
+            recognitionRequest = nil
             state = .failed("Voice capture could not start.")
             return
         }
@@ -137,5 +172,26 @@ final class VoiceCaptureController: ObservableObject {
                 }
             }
         }
+
+        if recognitionTask == nil {
+            audioEngine.stop()
+            removeInputTapIfNeeded()
+            recognitionRequest = nil
+            state = .failed("Speech recognition could not start.")
+        }
+    }
+
+    private func removeInputTapIfNeeded() {
+        guard hasInstalledInputTap else { return }
+        audioEngine.inputNode.removeTap(onBus: 0)
+        hasInstalledInputTap = false
+    }
+
+    private var shouldUseSimulatorVoiceFallback: Bool {
+        #if targetEnvironment(simulator)
+        true
+        #else
+        false
+        #endif
     }
 }
