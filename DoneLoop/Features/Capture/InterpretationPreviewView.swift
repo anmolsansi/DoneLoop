@@ -9,21 +9,29 @@ struct InterpretationPreviewView: View {
     let isParsing: Bool
     let retry: () -> Void
     let showTaskDetail: () -> Void
+    let showToday: () -> Void
+    let showInbox: () -> Void
 
     @State private var items: [DLParsedItem]
+    @State private var creationResult: DLCreationResult?
+    @State private var saveErrors: [DLValidationIssue] = []
 
     init(
         output: DLParserOutput?,
         errorMessage: String?,
         isParsing: Bool,
         retry: @escaping () -> Void,
-        showTaskDetail: @escaping () -> Void
+        showTaskDetail: @escaping () -> Void,
+        showToday: @escaping () -> Void,
+        showInbox: @escaping () -> Void
     ) {
         self.output = output
         self.errorMessage = errorMessage
         self.isParsing = isParsing
         self.retry = retry
         self.showTaskDetail = showTaskDetail
+        self.showToday = showToday
+        self.showInbox = showInbox
         self._items = State(initialValue: output?.items ?? [])
     }
 
@@ -34,12 +42,15 @@ struct InterpretationPreviewView: View {
         return editedOutput
     }
 
-    private var validationErrors: [String] {
-        currentOutput?.validationErrors() ?? []
+    private var validationResult: DLParserValidationResult {
+        guard let currentOutput else {
+            return DLParserValidationResult(issues: [])
+        }
+        return DLParserOutputValidator.validate(currentOutput)
     }
 
     private var canSave: Bool {
-        !isParsing && errorMessage == nil && currentOutput?.isValid == true
+        !isParsing && errorMessage == nil && currentOutput != nil && validationResult.canSave && creationResult == nil
     }
 
     var body: some View {
@@ -55,6 +66,8 @@ struct InterpretationPreviewView: View {
                             .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
                     } else if let errorMessage {
                         errorCard(errorMessage)
+                    } else if let creationResult {
+                        confirmationView(creationResult)
                     } else if items.isEmpty {
                         emptyOutput
                     } else {
@@ -63,14 +76,16 @@ struct InterpretationPreviewView: View {
                         validationView
                     }
 
-                    HStack(spacing: DLSpacing.md) {
-                        Button("Try Again", action: retry)
-                            .buttonStyle(.bordered)
-                        Spacer()
-                        DLPrimaryButton("Save Items", systemImage: "tray.and.arrow.down") {
-                            saveItems()
+                    if creationResult == nil {
+                        HStack(spacing: DLSpacing.md) {
+                            Button("Try Again", action: retry)
+                                .buttonStyle(.bordered)
+                            Spacer()
+                            DLPrimaryButton("Save Items", systemImage: "tray.and.arrow.down") {
+                                saveItems()
+                            }
+                            .disabled(!canSave)
                         }
-                        .disabled(!canSave)
                     }
                 }
                 .padding(DLSpacing.lg)
@@ -85,6 +100,8 @@ struct InterpretationPreviewView: View {
         }
         .onChange(of: output) { _, newOutput in
             items = newOutput?.items ?? []
+            creationResult = nil
+            saveErrors = []
         }
     }
 
@@ -132,12 +149,25 @@ struct InterpretationPreviewView: View {
 
     private var validationView: some View {
         VStack(alignment: .leading, spacing: DLSpacing.xs) {
-            ForEach(validationErrors, id: \.self) { error in
-                Label(error, systemImage: "xmark.octagon")
-                    .font(.caption)
-                    .foregroundStyle(DLColor.danger)
+            ForEach(validationResult.blockingIssues) { issue in
+                validationRow(issue, systemImage: "xmark.octagon", color: DLColor.danger)
+            }
+            ForEach(validationResult.clarificationIssues) { issue in
+                validationRow(issue, systemImage: "questionmark.circle", color: DLColor.attention)
+            }
+            ForEach(validationResult.warningIssues) { issue in
+                validationRow(issue, systemImage: "exclamationmark.triangle", color: DLColor.attention)
+            }
+            ForEach(saveErrors) { issue in
+                validationRow(issue, systemImage: "xmark.octagon", color: DLColor.danger)
             }
         }
+    }
+
+    private func validationRow(_ issue: DLValidationIssue, systemImage: String, color: Color) -> some View {
+        Label(issue.message, systemImage: systemImage)
+            .font(.caption)
+            .foregroundStyle(color)
     }
 
     private var emptyOutput: some View {
@@ -159,6 +189,56 @@ struct InterpretationPreviewView: View {
         }
         .padding(DLSpacing.md)
         .background(DLColor.dangerMuted, in: RoundedRectangle(cornerRadius: DLRadius.md))
+    }
+
+    private func confirmationView(_ result: DLCreationResult) -> some View {
+        VStack(alignment: .leading, spacing: DLSpacing.lg) {
+            Label("Saved", systemImage: "checkmark.circle.fill")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(DLColor.success)
+
+            Text(result.confirmationMessage)
+                .font(.callout)
+                .foregroundStyle(DLColor.textSecondary)
+
+            ForEach(result.createdItems) { item in
+                HStack(spacing: DLSpacing.md) {
+                    Image(systemName: item.type.systemImage)
+                        .foregroundStyle(DLColor.primary)
+                    VStack(alignment: .leading, spacing: DLSpacing.xs) {
+                        Text(item.title)
+                            .font(.headline)
+                            .foregroundStyle(DLColor.textPrimary)
+                        Text(item.destination.displayName)
+                            .font(.caption)
+                            .foregroundStyle(DLColor.textSecondary)
+                    }
+                    Spacer()
+                }
+            }
+
+            HStack(spacing: DLSpacing.md) {
+                Button {
+                    dismiss()
+                    showInbox()
+                } label: {
+                    Label("Open Inbox", systemImage: "tray")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                DLPrimaryButton("Open Today", systemImage: "sun.max") {
+                    dismiss()
+                    showToday()
+                }
+            }
+        }
+        .padding(DLSpacing.md)
+        .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: DLRadius.md)
+                .stroke(DLColor.divider, lineWidth: 0.5)
+        )
     }
 
     private func itemCard(item: Binding<DLParsedItem>) -> some View {
@@ -224,64 +304,23 @@ struct InterpretationPreviewView: View {
     }
 
     private func saveItems() {
-        guard let output = currentOutput, output.isValid else { return }
+        guard let output = currentOutput else { return }
+        let validation = DLParserOutputValidator.validate(output)
+        let result = DLItemCreationEngine.createItems(
+            from: output,
+            validation: validation,
+            in: services.localStore
+        )
 
-        for item in output.items {
-            switch item.type {
-            case .task, .reminder, .calendarBlock:
-                services.localStore.upsertTask(
-                    DLTask(
-                        title: item.title,
-                        summary: item.summary,
-                        nextAction: item.nextAction,
-                        status: item.scheduledStart == nil && item.dueDate == nil ? .inbox : .scheduled,
-                        priority: item.priority,
-                        category: item.category,
-                        dueDate: item.dueDate,
-                        dueTime: item.dueTime,
-                        scheduledStart: item.scheduledStart,
-                        scheduledEnd: item.scheduledEnd,
-                        sourceCaptureID: output.sourceCaptureID,
-                        aiProviderUsed: .ruleBased
-                    )
-                )
-            case .note, .brainDump:
-                let now = Date()
-                services.localStore.upsertNote(
-                    DLNote(
-                        id: UUID(),
-                        title: item.title,
-                        content: item.summary ?? item.title,
-                        summary: item.summary,
-                        category: item.category,
-                        sourceCaptureID: output.sourceCaptureID,
-                        createdAt: now,
-                        updatedAt: now
-                    )
-                )
-            case .idea:
-                let now = Date()
-                services.localStore.upsertIdea(
-                    DLIdea(
-                        id: UUID(),
-                        title: item.title,
-                        summary: item.summary,
-                        suggestedNextAction: item.nextAction,
-                        convertedToTaskID: nil,
-                        createdAt: now,
-                        updatedAt: now
-                    )
-                )
-            }
+        switch result {
+        case .success(let creationResult):
+            services.calendar.syncScheduledTasks(in: services.localStore)
+            services.notifications.scheduleAllEligibleTasks(in: services.localStore)
+            self.creationResult = creationResult
+            self.saveErrors = []
+        case .failure(.validation(let issues)):
+            self.saveErrors = issues
         }
-
-        if let sourceCaptureID = output.sourceCaptureID, var capture = services.localStore.capture(id: sourceCaptureID) {
-            capture.processingStatus = .saved
-            services.localStore.upsertCapture(capture)
-        }
-
-        dismiss()
-        showTaskDetail()
     }
 
     private func optionalText(_ binding: Binding<String?>, defaultValue: String) -> Binding<String> {
@@ -307,6 +346,17 @@ struct InterpretationPreviewView: View {
         }
 
         return nil
+    }
+}
+
+private extension DLCreatedItemDestination {
+    var displayName: String {
+        switch self {
+        case .today: "Today"
+        case .inbox: "Inbox"
+        case .notes: "Notes"
+        case .ideas: "Ideas"
+        }
     }
 }
 

@@ -2,16 +2,31 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var services: AppServices
+    @State private var isShowingGoogleConnectFlow = false
 
     var body: some View {
         List {
             Section("Google Calendar") {
                 settingsRow(
                     title: "Connection",
-                    detail: services.localStore.settings.googleCalendarID == nil ? services.calendar.connectionLabel : "Connected",
-                    symbol: "calendar.badge.exclamationmark",
-                    status: services.localStore.settings.googleCalendarID == nil ? .calendarDisconnected : .calendarSynced
+                    detail: calendarConnectionDetail,
+                    symbol: calendarConnectionSymbol,
+                    status: calendarConnectionStatus
                 )
+
+                if services.calendar.isConnected(settings: services.localStore.settings) {
+                    Button(role: .destructive) {
+                        services.calendar.disconnect(store: services.localStore)
+                    } label: {
+                        Label("Disconnect Google Calendar", systemImage: "xmark.circle")
+                    }
+                } else {
+                    Button {
+                        isShowingGoogleConnectFlow = true
+                    } label: {
+                        Label("Connect Google Calendar", systemImage: "calendar.badge.plus")
+                    }
+                }
             }
 
             Section("AI Mode") {
@@ -51,7 +66,25 @@ struct SettingsView: View {
 
             Section("Reminders") {
                 Toggle("Enable local reminders", isOn: remindersBinding)
-                settingsRow(title: "Permission", detail: services.notifications.permissionLabel, symbol: "bell", status: .needsDecision)
+                settingsRow(
+                    title: "Permission",
+                    detail: services.localStore.settings.notificationPermissionStatus.displayName,
+                    symbol: reminderPermissionSymbol,
+                    status: reminderPermissionStatus
+                )
+                Stepper(value: defaultSnoozeBinding, in: 5...180, step: 5) {
+                    settingsRow(
+                        title: "Default snooze",
+                        detail: "\(services.localStore.settings.defaultSnoozeMinutes) minutes",
+                        symbol: "moon",
+                        status: .notScheduled
+                    )
+                }
+                Button {
+                    services.notifications.requestPermission(store: services.localStore)
+                } label: {
+                    Label("Request Notification Permission", systemImage: "bell.badge")
+                }
             }
 
             Section("Privacy") {
@@ -76,6 +109,17 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .background(DLColor.background)
         .navigationTitle("Settings")
+        .confirmationDialog("Connect Google Calendar?", isPresented: $isShowingGoogleConnectFlow, titleVisibility: .visible) {
+            Button("Continue") {
+                services.calendar.connect(store: services.localStore)
+            }
+            Button("Deny Permission", role: .destructive) {
+                services.calendar.simulatePermissionDenied(store: services.localStore)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("DoneLoop will only use Calendar for scheduled tasks and calendar blocks.")
+        }
     }
 
     private var aiModeBinding: Binding<DLAIMode> {
@@ -94,8 +138,15 @@ struct SettingsView: View {
         Binding(
             get: { services.localStore.settings.remindersEnabled },
             set: { enabled in
-                services.localStore.updateSettings { settings in
-                    settings.remindersEnabled = enabled
+                if enabled {
+                    services.notifications.requestPermission(store: services.localStore)
+                } else {
+                    services.localStore.updateSettings { settings in
+                        settings.remindersEnabled = false
+                    }
+                    for task in services.localStore.tasks {
+                        services.notifications.cancelReminder(for: task.id, in: services.localStore)
+                    }
                 }
             }
         )
@@ -132,6 +183,69 @@ struct SettingsView: View {
                 }
             }
         )
+    }
+
+    private var defaultSnoozeBinding: Binding<Int> {
+        Binding(
+            get: { services.localStore.settings.defaultSnoozeMinutes },
+            set: { minutes in
+                services.localStore.updateSettings { settings in
+                    settings.defaultSnoozeMinutes = minutes
+                }
+            }
+        )
+    }
+
+    private var calendarConnectionDetail: String {
+        let settings = services.localStore.settings
+        switch settings.googleCalendarConnectionStatus {
+        case .connected:
+            let account = settings.googleCalendarAccountEmail ?? "Google account"
+            let calendar = settings.googleCalendarName ?? settings.googleCalendarID ?? "Primary Calendar"
+            return "\(account) - \(calendar)"
+        case .disconnected:
+            return "Connect before syncing scheduled work."
+        case .permissionDenied:
+            return "Calendar permission was denied. Reconnect to try again."
+        case .tokenExpired:
+            return "Google access expired. Reconnect to continue syncing."
+        case .networkUnavailable:
+            return "Network unavailable. Local tasks will still save."
+        }
+    }
+
+    private var calendarConnectionSymbol: String {
+        switch services.localStore.settings.googleCalendarConnectionStatus {
+        case .connected: "calendar.badge.checkmark"
+        case .disconnected: "calendar.badge.exclamationmark"
+        case .permissionDenied: "hand.raised"
+        case .tokenExpired: "arrow.clockwise"
+        case .networkUnavailable: "wifi.exclamationmark"
+        }
+    }
+
+    private var calendarConnectionStatus: DLStatus {
+        switch services.localStore.settings.googleCalendarConnectionStatus {
+        case .connected: .calendarSynced
+        case .disconnected: .calendarDisconnected
+        case .permissionDenied, .tokenExpired, .networkUnavailable: .calendarFailed
+        }
+    }
+
+    private var reminderPermissionSymbol: String {
+        switch services.localStore.settings.notificationPermissionStatus {
+        case .notDetermined: "bell"
+        case .granted, .provisional: "bell.badge"
+        case .denied: "bell.slash"
+        }
+    }
+
+    private var reminderPermissionStatus: DLStatus {
+        switch services.localStore.settings.notificationPermissionStatus {
+        case .granted, .provisional: .calendarSynced
+        case .notDetermined: .needsDecision
+        case .denied: .calendarFailed
+        }
     }
 
     private func hourLabel(_ hour: Int) -> String {
