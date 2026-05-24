@@ -4,18 +4,10 @@ import Foundation
 final class AppServices: ObservableObject {
     let localStore = LocalStore()
     let aiRouter = AIProviderRouter()
-    let calendar = CalendarServiceStub()
-    let notifications = NotificationServiceStub()
+    let calendar = CalendarService()
+    let notifications = NotificationService()
 
     var parserModeLabel: String {
         aiRouter.modeDetail(for: localStore.settings)
     }
-}
-
-struct CalendarServiceStub {
-    var connectionLabel: String { "Disconnected" }
-}
-
-struct NotificationServiceStub {
-    var permissionLabel: String { "Not requested" }
 }
