@@ -30,6 +30,8 @@ V2 is about organization and review after the V1 loop works.
 - Stuck-task detection: surface tasks that repeatedly avoid resolution.
 - Semantic note organization: cluster notes and brain dumps for later review.
 
+The first V2 foundation lives in `DoneLoop/V2/V2BacklogFoundation.swift` and is documented in `docs/v2-backlog-foundations.md`. It provides local, backend-free engines for these backlog items without adding new V1 screens.
+
 ## V3 Production Roadmap
 
 V3 is about turning a personal app into a product after V1 proves retention.
