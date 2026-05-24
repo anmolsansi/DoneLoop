@@ -51,6 +51,8 @@ V3 is about turning a personal app into a product after V1 proves retention.
 
 These are intentionally not required for V1.
 
+The first V3 production foundation lives in `DoneLoop/V3/V3ProductionFoundation.swift` and is documented in `docs/v3-production-foundations.md`. It provides local roadmap types for AI provider modes, bring-your-own-key requirements, managed cloud AI, pricing tiers, usage caps, cross-device sync, Mac and web surfaces, Gmail, Google Tasks, Apple Reminders, onboarding, privacy controls, and team features without adding those features to V1.
+
 ## AI And Privacy Modes
 
 Local Only:
