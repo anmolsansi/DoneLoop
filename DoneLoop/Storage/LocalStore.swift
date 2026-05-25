@@ -258,6 +258,13 @@ final class LocalStore: ObservableObject {
         }
     }
 
+    func markTaskCalendarDisconnected(id: UUID, message: String? = nil) {
+        updateTask(id) { task in
+            task.calendarSyncStatus = .disconnected
+            task.calendarSyncError = message
+        }
+    }
+
     func markTaskCalendarSyncNotScheduled(id: UUID) {
         updateTask(id) { task in
             task.calendarSyncStatus = .notScheduled

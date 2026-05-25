@@ -5,6 +5,7 @@ struct AppRootView: View {
     @State private var selectedTab: AppTab = .capture
     @State private var selectedTask: SelectedTask?
     @State private var decisionTask: SelectedTask?
+    @State private var notificationFallback: NotificationFallback?
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -69,8 +70,24 @@ struct AppRootView: View {
                 decisionTask = SelectedTask(id: taskID)
             } else {
                 selectedTab = .today
+                notificationFallback = NotificationFallback(
+                    message: "This reminder points to a task that is already done or deleted."
+                )
             }
             services.notifications.consumeOpenedTaskID()
+        }
+        .onChange(of: services.notifications.fallbackMessage) { _, message in
+            guard let message else { return }
+            selectedTab = .today
+            notificationFallback = NotificationFallback(message: message)
+            services.notifications.consumeFallbackMessage()
+        }
+        .alert(item: $notificationFallback) { fallback in
+            Alert(
+                title: Text("Reminder unavailable"),
+                message: Text(fallback.message),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 
@@ -82,6 +99,11 @@ struct AppRootView: View {
 
 private struct SelectedTask: Identifiable {
     let id: UUID
+}
+
+private struct NotificationFallback: Identifiable {
+    let id = UUID()
+    let message: String
 }
 
 struct AppRootView_Previews: PreviewProvider {

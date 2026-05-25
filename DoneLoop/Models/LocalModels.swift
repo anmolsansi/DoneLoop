@@ -62,6 +62,7 @@ enum DLAIMode: String, Codable, CaseIterable {
 
 enum DLGoogleCalendarConnectionStatus: String, Codable, CaseIterable {
     case disconnected
+    case developmentPlaceholder
     case connected
     case permissionDenied
     case tokenExpired
@@ -70,6 +71,7 @@ enum DLGoogleCalendarConnectionStatus: String, Codable, CaseIterable {
     var displayName: String {
         switch self {
         case .disconnected: "Disconnected"
+        case .developmentPlaceholder: "Real sync unavailable"
         case .connected: "Connected"
         case .permissionDenied: "Permission denied"
         case .tokenExpired: "Reconnect required"
@@ -467,6 +469,12 @@ struct DLUserSettings: Codable, Equatable {
         self.googleCalendarName = try container.decodeIfPresent(String.self, forKey: .googleCalendarName)
         self.googleCalendarConnectionStatus = try container.decodeIfPresent(DLGoogleCalendarConnectionStatus.self, forKey: .googleCalendarConnectionStatus)
             ?? (self.googleCalendarID == nil ? .disconnected : .connected)
+        if self.googleCalendarAccountEmail == "connected-google-account" {
+            self.googleCalendarID = nil
+            self.googleCalendarName = nil
+            self.googleCalendarAccountEmail = nil
+            self.googleCalendarConnectionStatus = .developmentPlaceholder
+        }
         self.notificationPermissionStatus = try container.decodeIfPresent(DLNotificationPermissionStatus.self, forKey: .notificationPermissionStatus)
             ?? defaults.notificationPermissionStatus
         self.defaultSnoozeMinutes = try container.decodeIfPresent(Int.self, forKey: .defaultSnoozeMinutes)

@@ -2,6 +2,7 @@ import Foundation
 
 enum DLCalendarServiceError: Error, Equatable {
     case disconnected
+    case realSyncUnavailable
     case missingSchedule
     case invalidSchedule
     case missingEvent
@@ -17,16 +18,22 @@ struct DLCalendarEventDraft: Equatable {
 
 @MainActor
 final class CalendarService: ObservableObject {
+    private let realGoogleSyncAvailable = false
+
     var connectionLabel: String {
         "Google Calendar"
     }
 
+    var realSyncUnavailableMessage: String {
+        "Real Google Calendar sync is not available in this build. Scheduled work stays local and no Google event is created."
+    }
+
     func connect(store: LocalStore) {
         store.updateSettings { settings in
-            settings.googleCalendarConnectionStatus = .connected
-            settings.googleCalendarID = "primary"
-            settings.googleCalendarName = "Primary Calendar"
-            settings.googleCalendarAccountEmail = "connected-google-account"
+            settings.googleCalendarConnectionStatus = .developmentPlaceholder
+            settings.googleCalendarID = nil
+            settings.googleCalendarName = nil
+            settings.googleCalendarAccountEmail = nil
         }
         syncScheduledTasks(in: store)
     }
@@ -58,8 +65,18 @@ final class CalendarService: ObservableObject {
 
     @discardableResult
     func createEvent(for taskID: UUID, in store: LocalStore) -> Result<String, DLCalendarServiceError> {
+        guard realGoogleSyncAvailable else {
+            store.markTaskCalendarDisconnected(id: taskID, message: realSyncUnavailableMessage)
+            return .failure(.realSyncUnavailable)
+        }
+
+        if store.settings.googleCalendarConnectionStatus == .developmentPlaceholder {
+            store.markTaskCalendarDisconnected(id: taskID, message: realSyncUnavailableMessage)
+            return .failure(.realSyncUnavailable)
+        }
+
         guard isConnected(settings: store.settings) else {
-            store.markTaskCalendarSyncFailed(id: taskID, message: "Google Calendar is disconnected.")
+            store.markTaskCalendarDisconnected(id: taskID, message: "Connect real Google Calendar sync before creating external events.")
             return .failure(.disconnected)
         }
 
@@ -73,7 +90,7 @@ final class CalendarService: ObservableObject {
             return .failure(.invalidSchedule)
         }
 
-        let eventID = task.calendarEventID ?? "doneloop-\(task.id.uuidString.lowercased())"
+        let eventID = task.calendarEventID ?? "google-calendar-event-\(task.id.uuidString.lowercased())"
         store.markTaskCalendarSynced(id: taskID, eventID: eventID)
         return .success(eventID)
     }
@@ -88,8 +105,18 @@ final class CalendarService: ObservableObject {
 
     @discardableResult
     func deleteEvent(for taskID: UUID, in store: LocalStore) -> Result<Void, DLCalendarServiceError> {
+        guard realGoogleSyncAvailable else {
+            store.disconnectTaskCalendarEvent(id: taskID)
+            return .failure(.realSyncUnavailable)
+        }
+
+        if store.settings.googleCalendarConnectionStatus == .developmentPlaceholder {
+            store.disconnectTaskCalendarEvent(id: taskID)
+            return .failure(.realSyncUnavailable)
+        }
+
         guard isConnected(settings: store.settings) else {
-            store.markTaskCalendarSyncFailed(id: taskID, message: "Google Calendar is disconnected.")
+            store.markTaskCalendarDisconnected(id: taskID, message: "Connect real Google Calendar sync before deleting external events.")
             return .failure(.disconnected)
         }
         guard let task = store.task(id: taskID), task.calendarEventID != nil else {
@@ -118,6 +145,9 @@ final class CalendarService: ObservableObject {
     }
 
     func isConnected(settings: DLUserSettings) -> Bool {
-        settings.googleCalendarConnectionStatus == .connected && settings.googleCalendarID != nil
+        guard realGoogleSyncAvailable else { return false }
+        return settings.googleCalendarConnectionStatus == .connected
+            && settings.googleCalendarID != nil
+            && settings.googleCalendarAccountEmail != "connected-google-account"
     }
 }

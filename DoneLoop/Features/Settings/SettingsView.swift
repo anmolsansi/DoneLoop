@@ -24,7 +24,7 @@ struct SettingsView: View {
                     Button {
                         isShowingGoogleConnectFlow = true
                     } label: {
-                        Label("Connect Google Calendar", systemImage: "calendar.badge.plus")
+                        Label("Review Google Calendar Sync", systemImage: "calendar.badge.plus")
                     }
                 }
             }
@@ -109,8 +109,8 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .background(DLColor.background)
         .navigationTitle("Settings")
-        .confirmationDialog("Connect Google Calendar?", isPresented: $isShowingGoogleConnectFlow, titleVisibility: .visible) {
-            Button("Continue") {
+        .confirmationDialog("Google Calendar sync", isPresented: $isShowingGoogleConnectFlow, titleVisibility: .visible) {
+            Button("Keep Local For Now") {
                 services.calendar.connect(store: services.localStore)
             }
             Button("Deny Permission", role: .destructive) {
@@ -118,7 +118,7 @@ struct SettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("DoneLoop will only use Calendar for scheduled tasks and calendar blocks.")
+            Text("Real Google OAuth and Calendar event sync are not available in this build. Scheduled work will stay local until a real Google sign-in flow is added.")
         }
     }
 
@@ -203,6 +203,8 @@ struct SettingsView: View {
             let account = settings.googleCalendarAccountEmail ?? "Google account"
             let calendar = settings.googleCalendarName ?? settings.googleCalendarID ?? "Primary Calendar"
             return "\(account) - \(calendar)"
+        case .developmentPlaceholder:
+            return "Real Google Calendar sync is not available yet. Scheduled work stays local."
         case .disconnected:
             return "Connect before syncing scheduled work."
         case .permissionDenied:
@@ -217,6 +219,7 @@ struct SettingsView: View {
     private var calendarConnectionSymbol: String {
         switch services.localStore.settings.googleCalendarConnectionStatus {
         case .connected: "calendar.badge.checkmark"
+        case .developmentPlaceholder: "calendar.badge.exclamationmark"
         case .disconnected: "calendar.badge.exclamationmark"
         case .permissionDenied: "hand.raised"
         case .tokenExpired: "arrow.clockwise"
@@ -227,7 +230,7 @@ struct SettingsView: View {
     private var calendarConnectionStatus: DLStatus {
         switch services.localStore.settings.googleCalendarConnectionStatus {
         case .connected: .calendarSynced
-        case .disconnected: .calendarDisconnected
+        case .developmentPlaceholder, .disconnected: .calendarDisconnected
         case .permissionDenied, .tokenExpired, .networkUnavailable: .calendarFailed
         }
     }
