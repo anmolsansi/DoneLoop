@@ -11,6 +11,7 @@ enum DLNotificationServiceError: Error, Equatable {
 @MainActor
 final class NotificationService: NSObject, ObservableObject {
     @Published private(set) var openedTaskID: UUID?
+    @Published private(set) var fallbackMessage: String?
 
     private let center: UNUserNotificationCenter
 
@@ -123,6 +124,10 @@ final class NotificationService: NSObject, ObservableObject {
         openedTaskID = nil
     }
 
+    func consumeFallbackMessage() {
+        fallbackMessage = nil
+    }
+
     private static func permissionStatus(from status: UNAuthorizationStatus) -> DLNotificationPermissionStatus {
         switch status {
         case .notDetermined:
@@ -149,6 +154,8 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         Task { @MainActor in
             if let taskID, let uuid = UUID(uuidString: taskID) {
                 self.openedTaskID = uuid
+            } else {
+                self.fallbackMessage = "This reminder did not include a task ID."
             }
             completionHandler()
         }
@@ -159,6 +166,14 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        let taskID = notification.request.content.userInfo["taskID"] as? String
+        Task { @MainActor in
+            if let taskID, let uuid = UUID(uuidString: taskID) {
+                self.openedTaskID = uuid
+            } else {
+                self.fallbackMessage = "This reminder did not include a task ID."
+            }
+        }
         completionHandler([.banner, .sound])
     }
 }
