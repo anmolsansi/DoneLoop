@@ -353,6 +353,7 @@ private extension DLCreatedItemDestination {
     var displayName: String {
         switch self {
         case .today: "Today"
+        case .scheduled: "Scheduled"
         case .inbox: "Inbox"
         case .notes: "Notes"
         case .ideas: "Ideas"

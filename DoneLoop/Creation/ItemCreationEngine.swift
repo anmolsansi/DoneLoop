@@ -2,6 +2,7 @@ import Foundation
 
 enum DLCreatedItemDestination: String, Equatable {
     case today
+    case scheduled
     case inbox
     case notes
     case ideas
@@ -37,10 +38,14 @@ struct DLCreationResult: Equatable {
         createdItems.filter { $0.destination == .today }.count
     }
 
+    var scheduledCount: Int {
+        createdItems.filter { $0.destination == .scheduled }.count
+    }
+
     var confirmationMessage: String {
         let total = createdItems.count
         let itemWord = total == 1 ? "item" : "items"
-        return "Saved \(total) \(itemWord). \(todayCount) for Today, \(inboxCount) in Inbox."
+        return "Saved \(total) \(itemWord). \(todayCount) for Today, \(scheduledCount) scheduled, \(inboxCount) in Inbox."
     }
 }
 
@@ -93,7 +98,7 @@ enum DLItemCreationEngine {
                         id: task.id,
                         title: task.title,
                         type: item.type,
-                        destination: destination(for: task)
+                        destination: destination(for: task, now: now)
                     )
                 )
             case .note, .brainDump:
@@ -162,7 +167,19 @@ enum DLItemCreationEngine {
         return .inbox
     }
 
-    private static func destination(for task: DLTask) -> DLCreatedItemDestination {
-        task.status == .inbox ? .inbox : .today
+    private static func destination(for task: DLTask, now: Date) -> DLCreatedItemDestination {
+        if task.status == .inbox {
+            return .inbox
+        }
+
+        if let scheduledStart = task.scheduledStart {
+            return Calendar.current.isDate(scheduledStart, inSameDayAs: now) ? .today : .scheduled
+        }
+
+        if let dueDate = task.dueDate {
+            return Calendar.current.isDate(dueDate, inSameDayAs: now) ? .today : .scheduled
+        }
+
+        return .inbox
     }
 }

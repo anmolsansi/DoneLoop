@@ -37,6 +37,17 @@ struct TodayView: View {
             .map { $0 }
     }
 
+    private var upcomingTasks: [DLTask] {
+        let now = Date()
+        return services.localStore.tasks
+            .filter { task in
+                task.isActive && task.isFutureScheduled(referenceDate: now)
+            }
+            .sorted { $0.sortDate < $1.sortDate }
+            .prefix(5)
+            .map { $0 }
+    }
+
     private var filteredTasks: [DLTask] {
         services.localStore.tasks
             .filter { task in
@@ -50,7 +61,7 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: DLSpacing.xl) {
                 header
 
-                if todayTasks.isEmpty && calendarBlocks.isEmpty && overdueTasks.isEmpty && pendingDecisionTasks.isEmpty {
+                if todayTasks.isEmpty && calendarBlocks.isEmpty && overdueTasks.isEmpty && pendingDecisionTasks.isEmpty && upcomingTasks.isEmpty {
                     DLEmptyState(
                         title: "Today is clear",
                         detail: "Capture a thought or open Inbox to choose what deserves attention.",
@@ -73,6 +84,16 @@ struct TodayView: View {
                         } else {
                             ForEach(calendarBlocks) { task in
                                 calendarBlockRow(task)
+                            }
+                        }
+                    }
+
+                    section(title: "Upcoming", detail: "Next scheduled commitments.") {
+                        if upcomingTasks.isEmpty {
+                            quietEmptyRow("No upcoming scheduled work.")
+                        } else {
+                            ForEach(upcomingTasks) { task in
+                                upcomingTaskRow(task)
                             }
                         }
                     }
@@ -155,6 +176,33 @@ struct TodayView: View {
         .buttonStyle(.plain)
     }
 
+    private func upcomingTaskRow(_ task: DLTask) -> some View {
+        Button(action: { showTaskDetail(task.id) }) {
+            HStack(alignment: .top, spacing: DLSpacing.md) {
+                VStack(alignment: .leading, spacing: DLSpacing.xs) {
+                    Text(dateTimeText(for: task))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DLColor.primary)
+                    Text(task.title)
+                        .font(.headline)
+                        .foregroundStyle(DLColor.textPrimary)
+                    Text(task.nextAction?.nonEmpty ?? task.summary?.nonEmpty ?? "Review this scheduled work.")
+                        .font(.callout)
+                        .foregroundStyle(DLColor.textSecondary)
+                }
+                Spacer()
+                DLStatusBadge(status: task.displayStatus)
+            }
+            .padding(DLSpacing.md)
+            .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
+            .overlay(
+                RoundedRectangle(cornerRadius: DLRadius.md)
+                    .stroke(DLColor.divider, lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     private func calendarBlockRow(_ task: DLTask) -> some View {
         Button(action: { showTaskDetail(task.id) }) {
             HStack(alignment: .top, spacing: DLSpacing.md) {
@@ -197,6 +245,14 @@ struct TodayView: View {
             return "\(start.formatted(date: .omitted, time: .shortened)) - \(end.formatted(date: .omitted, time: .shortened))"
         }
         return start.formatted(date: .omitted, time: .shortened)
+    }
+
+    private func dateTimeText(for task: DLTask) -> String {
+        guard let start = task.scheduledStart ?? task.dueDate else { return "Unscheduled" }
+        if let end = task.scheduledEnd {
+            return "\(start.formatted(date: .abbreviated, time: .shortened)) - \(end.formatted(date: .omitted, time: .shortened))"
+        }
+        return start.formatted(date: .abbreviated, time: .shortened)
     }
 
     private func deterministicTopTaskSort(_ lhs: DLTask, _ rhs: DLTask) -> Bool {
@@ -269,6 +325,18 @@ private extension DLTask {
 
         if let dueDate {
             return dueDate < Calendar.current.startOfDay(for: referenceDate)
+        }
+
+        return false
+    }
+
+    func isFutureScheduled(referenceDate: Date) -> Bool {
+        if let scheduledStart {
+            return scheduledStart > referenceDate && !Calendar.current.isDateInToday(scheduledStart)
+        }
+
+        if let dueDate {
+            return dueDate > referenceDate && !Calendar.current.isDateInToday(dueDate)
         }
 
         return false
