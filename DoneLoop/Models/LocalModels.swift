@@ -355,6 +355,7 @@ struct DLIdea: Identifiable, Codable, Equatable {
 
 struct DLUserSettings: Codable, Equatable {
     var id: UUID
+    var hasCompletedOnboarding: Bool
     var timezoneIdentifier: String
     var preferredWorkStartHour: Int
     var preferredWorkEndHour: Int
@@ -375,6 +376,7 @@ struct DLUserSettings: Codable, Equatable {
     static func defaults(now: Date = Date()) -> DLUserSettings {
         DLUserSettings(
             id: UUID(),
+            hasCompletedOnboarding: false,
             timezoneIdentifier: TimeZone.current.identifier,
             preferredWorkStartHour: 9,
             preferredWorkEndHour: 17,
@@ -396,6 +398,7 @@ struct DLUserSettings: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case hasCompletedOnboarding
         case timezoneIdentifier
         case preferredWorkStartHour
         case preferredWorkEndHour
@@ -416,6 +419,7 @@ struct DLUserSettings: Codable, Equatable {
 
     init(
         id: UUID,
+        hasCompletedOnboarding: Bool = false,
         timezoneIdentifier: String,
         preferredWorkStartHour: Int,
         preferredWorkEndHour: Int,
@@ -434,6 +438,7 @@ struct DLUserSettings: Codable, Equatable {
         updatedAt: Date
     ) {
         self.id = id
+        self.hasCompletedOnboarding = hasCompletedOnboarding
         self.timezoneIdentifier = timezoneIdentifier
         self.preferredWorkStartHour = preferredWorkStartHour
         self.preferredWorkEndHour = preferredWorkEndHour
@@ -456,6 +461,7 @@ struct DLUserSettings: Codable, Equatable {
         let defaults = DLUserSettings.defaults()
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? defaults.id
+        self.hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? defaults.hasCompletedOnboarding
         self.timezoneIdentifier = try container.decodeIfPresent(String.self, forKey: .timezoneIdentifier) ?? defaults.timezoneIdentifier
         self.preferredWorkStartHour = try container.decodeIfPresent(Int.self, forKey: .preferredWorkStartHour) ?? defaults.preferredWorkStartHour
         self.preferredWorkEndHour = try container.decodeIfPresent(Int.self, forKey: .preferredWorkEndHour) ?? defaults.preferredWorkEndHour

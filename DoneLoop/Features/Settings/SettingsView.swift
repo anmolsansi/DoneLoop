@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var services: AppServices
     @State private var isShowingGoogleConnectFlow = false
+    @State private var isShowingResetConfirmation = false
 
     var body: some View {
         List {
@@ -105,6 +106,46 @@ struct SettingsView: View {
             Section("App") {
                 settingsRow(title: "Version", detail: "0.1.0", symbol: "info.circle", status: .notScheduled)
             }
+
+            Section("Local QA") {
+                settingsRow(
+                    title: "Local store",
+                    detail: services.localStore.storePath,
+                    symbol: "externaldrive",
+                    status: .notScheduled
+                )
+                settingsRow(
+                    title: "Items",
+                    detail: "\(services.localStore.tasks.count) tasks, \(services.localStore.notes.count) notes, \(services.localStore.ideas.count) ideas, \(services.localStore.captures.count) captures",
+                    symbol: "list.bullet.rectangle",
+                    status: .notScheduled
+                )
+                settingsRow(
+                    title: "Notifications",
+                    detail: services.localStore.settings.notificationPermissionStatus.displayName,
+                    symbol: reminderPermissionSymbol,
+                    status: reminderPermissionStatus
+                )
+                settingsRow(
+                    title: "Calendar",
+                    detail: services.localStore.settings.googleCalendarConnectionStatus.displayName,
+                    symbol: calendarConnectionSymbol,
+                    status: calendarConnectionStatus
+                )
+                disclosureText(title: "Last parser output", detail: services.localStore.latestParserOutputPreview)
+
+                Button {
+                    services.localStore.resetOnboarding()
+                } label: {
+                    Label("Show Onboarding Again", systemImage: "arrow.counterclockwise")
+                }
+
+                Button(role: .destructive) {
+                    isShowingResetConfirmation = true
+                } label: {
+                    Label("Reset Local Data", systemImage: "trash")
+                }
+            }
         }
         .scrollContentBackground(.hidden)
         .background(DLColor.background)
@@ -119,6 +160,16 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Real Google OAuth and Calendar event sync are not available in this build. Scheduled work will stay local until a real Google sign-in flow is added.")
+        }
+        .confirmationDialog("Reset local DoneLoop data?", isPresented: $isShowingResetConfirmation, titleVisibility: .visible) {
+            Button("Reset Local Data", role: .destructive) {
+                services.notifications.cancelAllReminders(in: services.localStore)
+                services.localStore.resetLocalData(keepOnboardingCompleted: true)
+                services.notifications.refreshAuthorizationStatus(store: services.localStore)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This clears local tasks, captures, notes, ideas, settings, and pending reminders on this device.")
         }
     }
 
@@ -269,6 +320,19 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(DLColor.textSecondary)
             }
+        }
+    }
+
+    private func disclosureText(title: String, detail: String) -> some View {
+        DisclosureGroup {
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(DLColor.textSecondary)
+                .textSelection(.enabled)
+                .padding(.vertical, DLSpacing.xs)
+        } label: {
+            Label(title, systemImage: "curlybraces")
+                .foregroundStyle(DLColor.textPrimary)
         }
     }
 }

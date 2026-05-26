@@ -13,6 +13,19 @@ final class LocalStore: ObservableObject {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
+    var storePath: String {
+        fileURL.path
+    }
+
+    var latestParserOutputPreview: String {
+        captures
+            .sorted { $0.createdAt > $1.createdAt }
+            .compactMap(\.aiOutputJSON)
+            .first?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nonEmpty ?? "No parser output saved yet."
+    }
+
     init(fileURL: URL? = nil) {
         self.fileURL = fileURL ?? LocalStore.defaultStoreURL()
         self.encoder = JSONEncoder()
@@ -355,6 +368,92 @@ final class LocalStore: ObservableObject {
         persist()
     }
 
+    func completeOnboarding() {
+        updateSettings { settings in
+            settings.hasCompletedOnboarding = true
+        }
+    }
+
+    func resetOnboarding() {
+        updateSettings { settings in
+            settings.hasCompletedOnboarding = false
+        }
+    }
+
+    func resetLocalData(keepOnboardingCompleted: Bool = true) {
+        tasks = []
+        captures = []
+        notes = []
+        ideas = []
+        settings = .defaults()
+        settings.hasCompletedOnboarding = keepOnboardingCompleted
+        settings.updatedAt = Date()
+        persist()
+    }
+
+    func searchLocalContent(_ query: String) -> [DLV1LocalSearchResult] {
+        let normalizedQuery = query.normalizedSearchText
+        guard !normalizedQuery.isEmpty else { return [] }
+
+        var results: [DLV1LocalSearchResult] = []
+
+        results += tasks
+            .filter { $0.status != .deleted }
+            .compactMap { task in
+                match(
+                    query: normalizedQuery,
+                    type: .task,
+                    id: task.id,
+                    title: task.title,
+                    searchableParts: [task.title, task.summary, task.nextAction, task.category],
+                    detailFallback: task.nextAction ?? task.summary ?? task.status.rawValue
+                )
+            }
+
+        results += notes.compactMap { note in
+            match(
+                query: normalizedQuery,
+                type: note.category == "brain_dump" ? .brainDump : .note,
+                id: note.id,
+                title: note.title,
+                searchableParts: [note.title, note.content, note.summary, note.category],
+                detailFallback: note.summary ?? note.content
+            )
+        }
+
+        results += ideas
+            .filter { $0.convertedToTaskID == nil }
+            .compactMap { idea in
+                match(
+                    query: normalizedQuery,
+                    type: .idea,
+                    id: idea.id,
+                    title: idea.title,
+                    searchableParts: [idea.title, idea.summary, idea.suggestedNextAction],
+                    detailFallback: idea.suggestedNextAction ?? idea.summary ?? "Idea"
+                )
+            }
+
+        results += captures.compactMap { capture in
+            match(
+                query: normalizedQuery,
+                type: .capture,
+                id: capture.id,
+                title: capture.transcript ?? capture.rawText,
+                searchableParts: [capture.rawText, capture.transcript, capture.aiOutputJSON],
+                detailFallback: capture.source.displayName
+            )
+        }
+
+        return results
+            .sorted { lhs, rhs in
+                if lhs.type.sortRank != rhs.type.sortRank {
+                    return lhs.type.sortRank < rhs.type.sortRank
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+    }
+
     func reload() {
         guard let snapshot = Self.loadSnapshot(from: fileURL, decoder: decoder) else { return }
         tasks = snapshot.tasks
@@ -409,6 +508,73 @@ final class LocalStore: ObservableObject {
         let rhsDate = rhs.scheduledStart ?? rhs.dueDate ?? rhs.updatedAt
         return lhsDate < rhsDate
     }
+
+    private func match(
+        query: String,
+        type: DLV1LocalSearchResult.ResultType,
+        id: UUID,
+        title: String,
+        searchableParts: [String?],
+        detailFallback: String
+    ) -> DLV1LocalSearchResult? {
+        let searchableText = searchableParts
+            .compactMap { $0?.normalizedSearchText }
+            .joined(separator: " ")
+        guard searchableText.contains(query) else { return nil }
+
+        return DLV1LocalSearchResult(
+            type: type,
+            itemID: id,
+            title: title.nonEmpty ?? "Untitled \(type.displayName.lowercased())",
+            detail: detailFallback.nonEmpty ?? type.displayName
+        )
+    }
+}
+
+struct DLV1LocalSearchResult: Identifiable, Equatable {
+    enum ResultType: String, Equatable {
+        case task
+        case note
+        case idea
+        case brainDump
+        case capture
+
+        var displayName: String {
+            switch self {
+            case .task: "Task"
+            case .note: "Note"
+            case .idea: "Idea"
+            case .brainDump: "Brain dump"
+            case .capture: "Capture"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .task: "checklist"
+            case .note: "note.text"
+            case .idea: "lightbulb"
+            case .brainDump: "tray.full"
+            case .capture: "quote.bubble"
+            }
+        }
+
+        var sortRank: Int {
+            switch self {
+            case .task: 0
+            case .note: 1
+            case .idea: 2
+            case .brainDump: 3
+            case .capture: 4
+            }
+        }
+    }
+
+    var id: String { "\(type.rawValue)-\(itemID.uuidString)" }
+    var type: ResultType
+    var itemID: UUID
+    var title: String
+    var detail: String
 }
 
 private extension LocalStore {
@@ -506,6 +672,12 @@ private extension String {
     var nonEmpty: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var normalizedSearchText: String {
+        folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
     }
 }
 

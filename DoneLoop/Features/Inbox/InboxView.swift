@@ -4,6 +4,15 @@ struct InboxView: View {
     @EnvironmentObject private var services: AppServices
     let showTaskDetail: (UUID) -> Void
     @State private var rescheduleTask: InboxRescheduleTask?
+    @State private var searchText = ""
+
+    private var searchResults: [DLV1LocalSearchResult] {
+        services.localStore.searchLocalContent(searchText)
+    }
+
+    private var isSearching: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     private var unscheduledTasks: [DLTask] {
         services.localStore.tasks
@@ -48,7 +57,9 @@ struct InboxView: View {
             VStack(alignment: .leading, spacing: DLSpacing.xl) {
                 header
 
-                if isEmpty {
+                if isSearching {
+                    searchSection
+                } else if isEmpty {
                     DLEmptyState(
                         title: "Inbox is clear",
                         detail: "Unscheduled tasks, notes, ideas, and brain dumps will wait here until you decide what to do.",
@@ -78,6 +89,7 @@ struct InboxView: View {
         }
         .background(DLColor.background)
         .navigationTitle("Inbox")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search local DoneLoop")
         .sheet(item: $rescheduleTask) { selection in
             DLRescheduleSheet(taskID: selection.id)
                 .environmentObject(services)
@@ -93,6 +105,24 @@ struct InboxView: View {
             Text("Hold unclear work here until it has a next decision.")
                 .font(.callout)
                 .foregroundStyle(DLColor.textSecondary)
+        }
+    }
+
+    private var searchSection: some View {
+        VStack(alignment: .leading, spacing: DLSpacing.md) {
+            sectionHeader(title: "Search Results", detail: "Local matches only. No network or AI is used.")
+
+            if searchResults.isEmpty {
+                DLEmptyState(
+                    title: "No local match",
+                    detail: "Try a task title, note text, idea, or capture transcript.",
+                    systemImage: "magnifyingglass"
+                )
+            } else {
+                ForEach(searchResults) { result in
+                    searchResultRow(result)
+                }
+            }
         }
     }
 
@@ -227,6 +257,47 @@ struct InboxView: View {
             RoundedRectangle(cornerRadius: DLRadius.md)
                 .stroke(DLColor.divider, lineWidth: 0.5)
         )
+    }
+
+    private func searchResultRow(_ result: DLV1LocalSearchResult) -> some View {
+        Button {
+            if result.type == .task {
+                showTaskDetail(result.itemID)
+            }
+        } label: {
+            HStack(alignment: .top, spacing: DLSpacing.md) {
+                Image(systemName: result.type.systemImage)
+                    .foregroundStyle(DLColor.primary)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: DLSpacing.xs) {
+                    Text(result.title)
+                        .font(.headline)
+                        .foregroundStyle(DLColor.textPrimary)
+                        .lineLimit(2)
+                    Text(result.detail)
+                        .font(.callout)
+                        .foregroundStyle(DLColor.textSecondary)
+                        .lineLimit(3)
+                    Text(result.type.displayName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DLColor.info)
+                }
+                Spacer()
+                if result.type == .task {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DLColor.textTertiary)
+                }
+            }
+            .padding(DLSpacing.md)
+            .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
+            .overlay(
+                RoundedRectangle(cornerRadius: DLRadius.md)
+                    .stroke(DLColor.divider, lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(result.type != .task)
     }
 
     private func sectionHeader(title: String, detail: String) -> some View {

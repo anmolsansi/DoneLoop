@@ -6,7 +6,7 @@ struct TodayView: View {
     let showCapture: () -> Void
 
     private var todayTasks: [DLTask] {
-        Array(filteredTasks.prefix(3))
+        Array(rankedTopTasks.prefix(3))
     }
 
     private var calendarBlocks: [DLTask] {
@@ -48,11 +48,11 @@ struct TodayView: View {
             .map { $0 }
     }
 
-    private var filteredTasks: [DLTask] {
+    private var rankedTopTasks: [DLTask] {
         services.localStore.tasks
-            .filter { task in
-                task.isActive && !task.isCalendarBlock && task.belongsOnToday
-            }
+            .filter(\.isActive)
+            .filter { !$0.isCalendarBlock }
+            .filter { $0.isTopThreeCandidate(referenceDate: Date()) }
             .sorted(by: deterministicTopTaskSort)
     }
 
@@ -68,7 +68,7 @@ struct TodayView: View {
                         systemImage: "sun.max"
                     )
                 } else {
-                    section(title: "Top 3", detail: "Only the work that needs a decision today.") {
+                    section(title: "Top 3", detail: "Ranked by overdue, scheduled today, priority, decisions, and recency.") {
                         if todayTasks.isEmpty {
                             quietEmptyRow("No top tasks yet.")
                         } else {
@@ -256,13 +256,28 @@ struct TodayView: View {
     }
 
     private func deterministicTopTaskSort(_ lhs: DLTask, _ rhs: DLTask) -> Bool {
-        if lhs.priority != rhs.priority {
-            return lhs.priority.sortRank > rhs.priority.sortRank
+        let now = Date()
+        let lhsRank = lhs.topThreeRank(referenceDate: now)
+        let rhsRank = rhs.topThreeRank(referenceDate: now)
+        if let decision = compareRanks(lhsRank, rhsRank) {
+            return decision
         }
         if lhs.sortDate != rhs.sortDate {
             return lhs.sortDate < rhs.sortDate
         }
-        return lhs.createdAt < rhs.createdAt
+        if lhs.updatedAt != rhs.updatedAt {
+            return lhs.updatedAt > rhs.updatedAt
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    private func compareRanks(_ lhs: [Int], _ rhs: [Int]) -> Bool? {
+        for index in 0..<min(lhs.count, rhs.count) {
+            if lhs[index] != rhs[index] {
+                return lhs[index] < rhs[index]
+            }
+        }
+        return nil
     }
 }
 
@@ -285,6 +300,47 @@ private extension DLTask {
         }
 
         return status == .snoozed || status == .blocked
+    }
+
+    func isTopThreeCandidate(referenceDate: Date) -> Bool {
+        isOverdue(referenceDate: referenceDate)
+            || isScheduledToday
+            || status == .inbox
+            || status == .snoozed
+            || status == .blocked
+            || priority == .high
+    }
+
+    var isScheduledToday: Bool {
+        if let scheduledStart {
+            return Calendar.current.isDateInToday(scheduledStart)
+        }
+        if let dueDate {
+            return Calendar.current.isDateInToday(dueDate)
+        }
+        return false
+    }
+
+    func topThreeRank(referenceDate: Date) -> [Int] {
+        [
+            isOverdue(referenceDate: referenceDate) ? 0 : 1,
+            isScheduledToday ? 0 : 1,
+            -priority.sortRank,
+            needsDecisionRank,
+            -snoozeCount,
+            -missedCount
+        ]
+    }
+
+    var needsDecisionRank: Int {
+        switch status {
+        case .inbox, .snoozed, .blocked:
+            return 0
+        case .scheduled, .inProgress:
+            return 1
+        case .done, .deleted:
+            return 2
+        }
     }
 
     var sortDate: Date {
