@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct TaskDetailPlaceholderView: View {
+struct TaskDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var services: AppServices
 
@@ -8,6 +8,8 @@ struct TaskDetailPlaceholderView: View {
     let showDecisionSheet: () -> Void
 
     @State private var isShowingDeleteConfirmation = false
+    @State private var isShowingRescheduleSheet = false
+    @State private var isShowingBreakdownSheet = false
 
     private var task: DLTask? {
         services.localStore.task(id: taskID)
@@ -51,7 +53,17 @@ struct TaskDetailPlaceholderView: View {
                 dismiss()
             }
         } message: {
-            Text("This removes the task from active DoneLoop views. Calendar cleanup is handled by the later calendar sync ticket.")
+            Text("This removes the task from active DoneLoop views and cancels its reminder. If a Calendar event exists, DoneLoop will remove or disconnect it.")
+        }
+        .sheet(isPresented: $isShowingRescheduleSheet) {
+            DLRescheduleSheet(taskID: taskID)
+                .environmentObject(services)
+                .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $isShowingBreakdownSheet) {
+            DLBreakdownPreviewSheet(taskID: taskID)
+                .environmentObject(services)
+                .presentationDetents([.large])
         }
     }
 
@@ -134,8 +146,7 @@ struct TaskDetailPlaceholderView: View {
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DLSpacing.sm) {
                 decisionButton("Done", systemImage: "checkmark.circle.fill", tint: DLColor.success) {
-                    services.notifications.cancelReminder(for: task.id, in: services.localStore)
-                    services.localStore.updateTaskStatus(id: task.id, status: .done)
+                    completeTask(task.id)
                     dismiss()
                 }
                 decisionButton("Snooze 30m", systemImage: "moon.fill", tint: DLColor.info) {
@@ -143,16 +154,10 @@ struct TaskDetailPlaceholderView: View {
                     _ = services.notifications.scheduleReminder(for: task.id, in: services.localStore)
                 }
                 decisionButton("Reschedule", systemImage: "calendar.badge.clock", tint: DLColor.info) {
-                    services.localStore.rescheduleTask(
-                        id: task.id,
-                        start: Date().addingTimeInterval(30 * 60),
-                        durationMinutes: services.localStore.settings.defaultTaskDurationMinutes
-                    )
-                    _ = services.calendar.updateEvent(for: task.id, in: services.localStore)
-                    _ = services.notifications.scheduleReminder(for: task.id, in: services.localStore)
+                    isShowingRescheduleSheet = true
                 }
                 decisionButton("Break down", systemImage: "arrow.down.right.and.arrow.up.left", tint: DLColor.primary) {
-                    _ = services.localStore.shrinkTask(id: task.id)
+                    isShowingBreakdownSheet = true
                 }
                 decisionButton("Blocked", systemImage: "hand.raised.fill", tint: DLColor.attention) {
                     services.notifications.cancelReminder(for: task.id, in: services.localStore)
@@ -172,7 +177,7 @@ struct TaskDetailPlaceholderView: View {
                         .font(.callout)
                         .foregroundStyle(DLColor.textSecondary)
                     DLPrimaryButton("Shrink Task", systemImage: "arrow.down.right") {
-                        _ = services.localStore.shrinkTask(id: task.id)
+                        isShowingBreakdownSheet = true
                     }
                 }
                 .padding(DLSpacing.md)
@@ -246,6 +251,14 @@ struct TaskDetailPlaceholderView: View {
         .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: DLRadius.md))
     }
 
+    private func completeTask(_ taskID: UUID) {
+        services.notifications.cancelReminder(for: taskID, in: services.localStore)
+        if services.localStore.task(id: taskID)?.calendarEventID != nil {
+            _ = services.calendar.deleteEvent(for: taskID, in: services.localStore)
+        }
+        services.localStore.updateTaskStatus(id: taskID, status: .done)
+    }
+
     private func priorityBadge(_ priority: DLTaskPriority) -> some View {
         Text(priority.displayName)
             .font(.caption.weight(.semibold))
@@ -294,6 +307,313 @@ struct TaskDetailPlaceholderView: View {
 
     private func formattedDateTime(_ date: Date?) -> String? {
         date?.formatted(date: .abbreviated, time: .shortened)
+    }
+}
+
+struct DLRescheduleSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var services: AppServices
+
+    let taskID: UUID
+
+    @State private var selectedStart = Date().addingTimeInterval(30 * 60)
+    @State private var durationMinutes = 30
+    @State private var errorMessage: String?
+
+    private var task: DLTask? {
+        services.localStore.task(id: taskID)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: DLSpacing.xl) {
+                if let task {
+                    VStack(alignment: .leading, spacing: DLSpacing.sm) {
+                        Text(task.title.nonEmpty ?? "Untitled task")
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(DLColor.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Pick a new time. DoneLoop will update the task, reminder, and Calendar status together.")
+                            .font(.callout)
+                            .foregroundStyle(DLColor.textSecondary)
+                    }
+
+                    quickChoices
+
+                    VStack(alignment: .leading, spacing: DLSpacing.md) {
+                        DatePicker("Start", selection: $selectedStart, displayedComponents: [.date, .hourAndMinute])
+                        Stepper(value: $durationMinutes, in: 5...180, step: 5) {
+                            Text("Duration: \(durationMinutes) minutes")
+                        }
+                    }
+                    .padding(DLSpacing.md)
+                    .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
+
+                    if let errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle")
+                            .font(.callout)
+                            .foregroundStyle(DLColor.danger)
+                            .padding(DLSpacing.md)
+                            .background(DLColor.dangerMuted, in: RoundedRectangle(cornerRadius: DLRadius.md))
+                    }
+
+                    DLPrimaryButton("Save Reschedule", systemImage: "calendar.badge.clock") {
+                        save()
+                    }
+                } else {
+                    DLEmptyState(
+                        title: "Task unavailable",
+                        detail: "This task was deleted before it could be rescheduled.",
+                        systemImage: "calendar.badge.exclamationmark"
+                    )
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(DLSpacing.lg)
+            .background(DLColor.background)
+            .navigationTitle("Reschedule")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onAppear(perform: loadInitialValues)
+        }
+    }
+
+    private var quickChoices: some View {
+        VStack(alignment: .leading, spacing: DLSpacing.md) {
+            Text("Quick Choices")
+                .font(.headline)
+                .foregroundStyle(DLColor.textPrimary)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DLSpacing.sm) {
+                quickChoiceButton("Later today", systemImage: "clock") {
+                    selectedStart = nextWorkingTime(hoursFromNow: 2)
+                }
+                quickChoiceButton("Tomorrow AM", systemImage: "sunrise") {
+                    selectedStart = nextDay(hour: services.localStore.settings.preferredWorkStartHour)
+                }
+                quickChoiceButton("Tomorrow PM", systemImage: "sunset") {
+                    selectedStart = nextDay(hour: max(services.localStore.settings.preferredWorkEndHour - 2, services.localStore.settings.preferredWorkStartHour))
+                }
+                quickChoiceButton("Next workday", systemImage: "calendar") {
+                    selectedStart = nextWorkday()
+                }
+            }
+        }
+    }
+
+    private func quickChoiceButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.callout.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DLSpacing.md)
+                .foregroundStyle(DLColor.primary)
+                .background(DLColor.primaryMuted, in: RoundedRectangle(cornerRadius: DLRadius.md))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func loadInitialValues() {
+        guard let task else { return }
+        selectedStart = task.scheduledStart ?? task.dueDate ?? Date().addingTimeInterval(30 * 60)
+        if let start = task.scheduledStart, let end = task.scheduledEnd {
+            durationMinutes = max(5, Int(end.timeIntervalSince(start) / 60))
+        } else {
+            durationMinutes = services.localStore.settings.defaultTaskDurationMinutes
+        }
+    }
+
+    private func save() {
+        guard selectedStart > Date() else {
+            errorMessage = "Choose a future time."
+            return
+        }
+
+        errorMessage = nil
+        services.notifications.cancelReminder(for: taskID, in: services.localStore)
+        services.localStore.rescheduleTask(id: taskID, start: selectedStart, durationMinutes: durationMinutes)
+        _ = services.calendar.updateEvent(for: taskID, in: services.localStore)
+        _ = services.notifications.scheduleReminder(for: taskID, in: services.localStore)
+        dismiss()
+    }
+
+    private func nextWorkingTime(hoursFromNow: Int) -> Date {
+        let proposed = Date().addingTimeInterval(TimeInterval(hoursFromNow * 60 * 60))
+        return proposed > Date() ? proposed : Date().addingTimeInterval(30 * 60)
+    }
+
+    private func nextDay(hour: Int) -> Date {
+        let calendar = Calendar.current
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date().addingTimeInterval(24 * 60 * 60)
+        return calendar.date(bySettingHour: hour, minute: 0, second: 0, of: tomorrow) ?? tomorrow
+    }
+
+    private func nextWorkday() -> Date {
+        var date = nextDay(hour: services.localStore.settings.preferredWorkStartHour)
+        let calendar = Calendar.current
+        while calendar.isDateInWeekend(date) {
+            date = calendar.date(byAdding: .day, value: 1, to: date) ?? date.addingTimeInterval(24 * 60 * 60)
+        }
+        return date
+    }
+}
+
+struct DLBreakdownPreviewSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var services: AppServices
+
+    let taskID: UUID
+
+    @State private var selectedSuggestion: DLBreakdownSuggestion?
+    @State private var editedTitle = ""
+    @State private var editedSummary = ""
+    @State private var editedNextAction = ""
+
+    private var task: DLTask? {
+        services.localStore.task(id: taskID)
+    }
+
+    private var suggestions: [DLBreakdownSuggestion] {
+        services.localStore.breakdownSuggestions(for: taskID)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DLSpacing.xl) {
+                    if let task {
+                        VStack(alignment: .leading, spacing: DLSpacing.sm) {
+                            Text("Break Down")
+                                .font(.title2.weight(.semibold))
+                                .foregroundStyle(DLColor.textPrimary)
+                            Text(task.title.nonEmpty ?? "Untitled task")
+                                .font(.headline)
+                                .foregroundStyle(DLColor.textPrimary)
+                            Text("Preview a smaller version before changing the task.")
+                                .font(.callout)
+                                .foregroundStyle(DLColor.textSecondary)
+                        }
+
+                        VStack(alignment: .leading, spacing: DLSpacing.md) {
+                            Text("Suggested Smaller Tasks")
+                                .font(.headline)
+                                .foregroundStyle(DLColor.textPrimary)
+
+                            if suggestions.isEmpty {
+                                quietEmptyRow("No suggestion is available for this task yet.")
+                            } else {
+                                ForEach(suggestions) { suggestion in
+                                    suggestionButton(suggestion)
+                                }
+                            }
+                        }
+
+                        editSection
+
+                        DLPrimaryButton("Apply Smaller Task", systemImage: "checkmark.circle") {
+                            apply()
+                        }
+                        .disabled(editedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    } else {
+                        DLEmptyState(
+                            title: "Task unavailable",
+                            detail: "This task was deleted before it could be broken down.",
+                            systemImage: "list.bullet.rectangle"
+                        )
+                    }
+                }
+                .padding(DLSpacing.lg)
+            }
+            .background(DLColor.background)
+            .navigationTitle("Break Down")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onAppear(perform: selectInitialSuggestion)
+        }
+    }
+
+    private var editSection: some View {
+        VStack(alignment: .leading, spacing: DLSpacing.md) {
+            Text("Edit Before Applying")
+                .font(.headline)
+                .foregroundStyle(DLColor.textPrimary)
+            TextField("Smaller task", text: $editedTitle, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+            TextField("Summary", text: $editedSummary, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+            TextField("Next action", text: $editedNextAction, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+        }
+        .padding(DLSpacing.md)
+        .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
+    }
+
+    private func suggestionButton(_ suggestion: DLBreakdownSuggestion) -> some View {
+        Button {
+            select(suggestion)
+        } label: {
+            HStack(alignment: .top, spacing: DLSpacing.md) {
+                Image(systemName: selectedSuggestion?.id == suggestion.id ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(DLColor.primary)
+                VStack(alignment: .leading, spacing: DLSpacing.xs) {
+                    Text(suggestion.title)
+                        .font(.headline)
+                        .foregroundStyle(DLColor.textPrimary)
+                    Text(suggestion.nextAction)
+                        .font(.callout)
+                        .foregroundStyle(DLColor.textSecondary)
+                }
+                Spacer()
+            }
+            .padding(DLSpacing.md)
+            .background(DLColor.surface, in: RoundedRectangle(cornerRadius: DLRadius.md))
+            .overlay(
+                RoundedRectangle(cornerRadius: DLRadius.md)
+                    .stroke(selectedSuggestion?.id == suggestion.id ? DLColor.primary : DLColor.divider, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func quietEmptyRow(_ text: String) -> some View {
+        Text(text)
+            .font(.callout)
+            .foregroundStyle(DLColor.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(DLSpacing.md)
+            .background(DLColor.surfaceMuted, in: RoundedRectangle(cornerRadius: DLRadius.md))
+    }
+
+    private func selectInitialSuggestion() {
+        guard selectedSuggestion == nil else { return }
+        if let suggestion = suggestions.first {
+            select(suggestion)
+        } else if let task {
+            select(DLBreakdownSuggestion.fallback(for: task))
+        }
+    }
+
+    private func select(_ suggestion: DLBreakdownSuggestion) {
+        selectedSuggestion = suggestion
+        editedTitle = suggestion.title
+        editedSummary = suggestion.summary
+        editedNextAction = suggestion.nextAction
+    }
+
+    private func apply() {
+        let suggestion = DLBreakdownSuggestion(
+            title: editedTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+            summary: editedSummary.trimmingCharacters(in: .whitespacesAndNewlines),
+            nextAction: editedNextAction.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        _ = services.localStore.applyBreakdownSuggestion(id: taskID, suggestion: suggestion)
+        dismiss()
     }
 }
 

@@ -233,10 +233,27 @@ final class LocalStore: ObservableObject {
     func shrinkTask(id: UUID) -> DLTask? {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return nil }
         let current = tasks[index]
-        let suggestion = Self.shrinkSuggestion(for: current)
+        let suggestion = Self.breakdownSuggestions(for: current).first ?? DLBreakdownSuggestion.fallback(for: current)
         tasks[index].title = suggestion.title
         tasks[index].nextAction = suggestion.nextAction
         tasks[index].summary = suggestion.summary
+        tasks[index].status = .inProgress
+        tasks[index].updatedAt = Date()
+        persist()
+        return tasks[index]
+    }
+
+    func breakdownSuggestions(for taskID: UUID) -> [DLBreakdownSuggestion] {
+        guard let task = task(id: taskID) else { return [] }
+        return Self.breakdownSuggestions(for: task)
+    }
+
+    @discardableResult
+    func applyBreakdownSuggestion(id: UUID, suggestion: DLBreakdownSuggestion) -> DLTask? {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return nil }
+        tasks[index].title = suggestion.title
+        tasks[index].summary = suggestion.summary
+        tasks[index].nextAction = suggestion.nextAction
         tasks[index].status = .inProgress
         tasks[index].updatedAt = Date()
         persist()
@@ -395,46 +412,81 @@ final class LocalStore: ObservableObject {
 }
 
 private extension LocalStore {
-    static func shrinkSuggestion(for task: DLTask) -> (title: String, summary: String, nextAction: String) {
+    static func breakdownSuggestions(for task: DLTask) -> [DLBreakdownSuggestion] {
         let title = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowercased = title.lowercased()
 
         if lowercased.contains("5 jobs") || lowercased.contains("five jobs") {
-            return (
-                "Apply to 1 job",
-                "Smaller version of: \(title)",
-                "Open one saved job link."
-            )
+            return [
+                DLBreakdownSuggestion(
+                    title: "Apply to 1 job",
+                    summary: "Smaller version of: \(title)",
+                    nextAction: "Open one saved job link."
+                ),
+                DLBreakdownSuggestion(
+                    title: "Pick 1 job to apply for",
+                    summary: "Decision-only version of: \(title)",
+                    nextAction: "Open saved roles and choose one listing."
+                )
+            ]
         }
 
         if lowercased.contains("jobs") {
-            return (
-                "Apply to 1 job",
-                "Smaller version of: \(title)",
-                "Open one job link and start the application."
-            )
+            return [
+                DLBreakdownSuggestion(
+                    title: "Apply to 1 job",
+                    summary: "Smaller version of: \(title)",
+                    nextAction: "Open one job link and start the application."
+                ),
+                DLBreakdownSuggestion(
+                    title: "Find one job link",
+                    summary: "Starter version of: \(title)",
+                    nextAction: "Open the job board and save one role."
+                )
+            ]
         }
 
         if lowercased.contains("resume") {
-            return (
-                "Improve one resume section",
-                "Smaller version of: \(title)",
-                "Open the resume and edit one bullet."
-            )
+            return [
+                DLBreakdownSuggestion(
+                    title: "Improve one resume section",
+                    summary: "Smaller version of: \(title)",
+                    nextAction: "Open the resume and edit one bullet."
+                ),
+                DLBreakdownSuggestion(
+                    title: "Choose one resume bullet",
+                    summary: "Decision-only version of: \(title)",
+                    nextAction: "Open the resume and highlight one bullet to improve."
+                )
+            ]
         }
 
         if lowercased.contains("email") {
-            return (
-                "Draft the first email line",
-                "Smaller version of: \(title)",
-                "Open the email draft and write the first sentence."
-            )
+            return [
+                DLBreakdownSuggestion(
+                    title: "Draft the first email line",
+                    summary: "Smaller version of: \(title)",
+                    nextAction: "Open the email draft and write the first sentence."
+                )
+            ]
         }
 
-        return (
-            "Start: \(title.isEmpty ? "this task" : title)",
-            "Smaller version of: \(title.isEmpty ? "Untitled task" : title)",
-            task.nextAction?.nonEmpty ?? "Do the first visible two-minute step."
+        return [DLBreakdownSuggestion.fallback(for: task)]
+    }
+}
+
+struct DLBreakdownSuggestion: Identifiable, Equatable {
+    let id = UUID()
+    var title: String
+    var summary: String
+    var nextAction: String
+
+    static func fallback(for task: DLTask) -> DLBreakdownSuggestion {
+        let title = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return DLBreakdownSuggestion(
+            title: "Start: \(title.isEmpty ? "this task" : title)",
+            summary: "Smaller version of: \(title.isEmpty ? "Untitled task" : title)",
+            nextAction: task.nextAction?.nonEmpty ?? "Do the first visible two-minute step."
         )
     }
 }

@@ -78,7 +78,7 @@ struct TodayView: View {
                         }
                     }
 
-                    section(title: "Calendar Blocks", detail: "Local scheduled work. Google Calendar sync comes later.") {
+                    section(title: "Calendar Blocks", detail: "Scheduled work with local reminder and Calendar status.") {
                         if calendarBlocks.isEmpty {
                             quietEmptyRow("No scheduled blocks today.")
                         } else {

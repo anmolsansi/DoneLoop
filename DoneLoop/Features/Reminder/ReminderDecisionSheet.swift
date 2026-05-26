@@ -8,6 +8,8 @@ struct ReminderDecisionSheet: View {
 
     @State private var isShowingDeleteConfirmation = false
     @State private var shrinkDismissed = false
+    @State private var isShowingRescheduleSheet = false
+    @State private var isShowingBreakdownSheet = false
 
     private var task: DLTask? {
         services.localStore.task(id: taskID)
@@ -40,6 +42,16 @@ struct ReminderDecisionSheet: View {
         } message: {
             Text("This removes the task from active DoneLoop views and cancels its reminder.")
         }
+        .sheet(isPresented: $isShowingRescheduleSheet) {
+            DLRescheduleSheet(taskID: taskID)
+                .environmentObject(services)
+                .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $isShowingBreakdownSheet) {
+            DLBreakdownPreviewSheet(taskID: taskID)
+                .environmentObject(services)
+                .presentationDetents([.large])
+        }
     }
 
     private func header(_ task: DLTask) -> some View {
@@ -68,8 +80,7 @@ struct ReminderDecisionSheet: View {
     private func decisionGrid(_ task: DLTask) -> some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DLSpacing.md) {
             decisionButton("Done", systemImage: "checkmark.circle.fill", tint: DLColor.success) {
-                services.notifications.cancelReminder(for: task.id, in: services.localStore)
-                services.localStore.updateTaskStatus(id: task.id, status: .done)
+                completeTask(task.id)
                 dismiss()
             }
 
@@ -79,19 +90,11 @@ struct ReminderDecisionSheet: View {
             }
 
             decisionButton("Reschedule", systemImage: "calendar.badge.clock", tint: DLColor.info) {
-                services.localStore.rescheduleTask(
-                    id: task.id,
-                    start: Date().addingTimeInterval(TimeInterval(services.localStore.settings.defaultSnoozeMinutes * 60)),
-                    durationMinutes: services.localStore.settings.defaultTaskDurationMinutes
-                )
-                _ = services.calendar.updateEvent(for: task.id, in: services.localStore)
-                _ = services.notifications.scheduleReminder(for: task.id, in: services.localStore)
-                dismiss()
+                isShowingRescheduleSheet = true
             }
 
             decisionButton("Break down", systemImage: "list.bullet.indent", tint: DLColor.primary) {
-                _ = services.localStore.shrinkTask(id: task.id)
-                dismiss()
+                isShowingBreakdownSheet = true
             }
 
             decisionButton("Blocked", systemImage: "hand.raised.fill", tint: DLColor.attention) {
@@ -130,8 +133,7 @@ struct ReminderDecisionSheet: View {
                 .buttonStyle(.bordered)
 
                 DLPrimaryButton("Shrink", systemImage: "arrow.down.right") {
-                    _ = services.localStore.shrinkTask(id: task.id)
-                    dismiss()
+                    isShowingBreakdownSheet = true
                 }
             }
         }
@@ -157,6 +159,14 @@ struct ReminderDecisionSheet: View {
         services.notifications.cancelReminder(for: taskID, in: services.localStore)
         services.localStore.deleteTask(id: taskID)
         dismiss()
+    }
+
+    private func completeTask(_ taskID: UUID) {
+        services.notifications.cancelReminder(for: taskID, in: services.localStore)
+        if services.localStore.task(id: taskID)?.calendarEventID != nil {
+            _ = services.calendar.deleteEvent(for: taskID, in: services.localStore)
+        }
+        services.localStore.updateTaskStatus(id: taskID, status: .done)
     }
 
     private func shrinkPreview(for task: DLTask) -> String {
