@@ -120,6 +120,13 @@ final class NotificationService: NSObject, ObservableObject {
         store.markTaskNotificationNotScheduled(id: taskID)
     }
 
+    func cancelAllReminders(in store: LocalStore) {
+        center.removeAllPendingNotificationRequests()
+        for task in store.tasks {
+            store.markTaskNotificationNotScheduled(id: task.id)
+        }
+    }
+
     func consumeOpenedTaskID() {
         openedTaskID = nil
     }
