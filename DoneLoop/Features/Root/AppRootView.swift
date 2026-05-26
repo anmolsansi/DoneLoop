@@ -48,7 +48,7 @@ struct AppRootView: View {
         .tint(DLColor.primary)
         .sheet(item: $selectedTask) { selectedTask in
             NavigationStack {
-                TaskDetailPlaceholderView(taskID: selectedTask.id, showDecisionSheet: {
+                TaskDetailView(taskID: selectedTask.id, showDecisionSheet: {
                     decisionTask = selectedTask
                     self.selectedTask = nil
                 })

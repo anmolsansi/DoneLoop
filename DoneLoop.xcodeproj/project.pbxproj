@@ -16,7 +16,7 @@
 		8A0000010000000000000007 /* InterpretationPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000107 /* InterpretationPreviewView.swift */; };
 		8A0000010000000000000008 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000108 /* TodayView.swift */; };
 		8A0000010000000000000009 /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000109 /* InboxView.swift */; };
-		8A0000010000000000000010 /* TaskDetailPlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000110 /* TaskDetailPlaceholderView.swift */; };
+		8A0000010000000000000010 /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000110 /* TaskDetailView.swift */; };
 		8A0000010000000000000011 /* ReminderDecisionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000111 /* ReminderDecisionSheet.swift */; };
 		8A0000010000000000000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000112 /* SettingsView.swift */; };
 		8A0000010000000000000013 /* LocalModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000113 /* LocalModels.swift */; };
@@ -43,7 +43,7 @@
 		8A0000010000000000000107 /* InterpretationPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterpretationPreviewView.swift; sourceTree = "<group>"; };
 		8A0000010000000000000108 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		8A0000010000000000000109 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
-		8A0000010000000000000110 /* TaskDetailPlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailPlaceholderView.swift; sourceTree = "<group>"; };
+		8A0000010000000000000110 /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
 		8A0000010000000000000111 /* ReminderDecisionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderDecisionSheet.swift; sourceTree = "<group>"; };
 		8A0000010000000000000112 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8A0000010000000000000113 /* LocalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModels.swift; sourceTree = "<group>"; };
@@ -177,7 +177,7 @@
 		8A0000010000000000000411 /* TaskDetail */ = {
 			isa = PBXGroup;
 			children = (
-				8A0000010000000000000110 /* TaskDetailPlaceholderView.swift */,
+				8A0000010000000000000110 /* TaskDetailView.swift */,
 			);
 			path = TaskDetail;
 			sourceTree = "<group>";
@@ -348,7 +348,7 @@
 				8A0000010000000000000007 /* InterpretationPreviewView.swift in Sources */,
 				8A0000010000000000000008 /* TodayView.swift in Sources */,
 				8A0000010000000000000009 /* InboxView.swift in Sources */,
-				8A0000010000000000000010 /* TaskDetailPlaceholderView.swift in Sources */,
+				8A0000010000000000000010 /* TaskDetailView.swift in Sources */,
 				8A0000010000000000000011 /* ReminderDecisionSheet.swift in Sources */,
 				8A0000010000000000000012 /* SettingsView.swift in Sources */,
 				8A0000010000000000000013 /* LocalModels.swift in Sources */,

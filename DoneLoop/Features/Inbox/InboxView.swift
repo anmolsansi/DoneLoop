@@ -3,6 +3,7 @@ import SwiftUI
 struct InboxView: View {
     @EnvironmentObject private var services: AppServices
     let showTaskDetail: (UUID) -> Void
+    @State private var rescheduleTask: InboxRescheduleTask?
 
     private var unscheduledTasks: [DLTask] {
         services.localStore.tasks
@@ -77,6 +78,11 @@ struct InboxView: View {
         }
         .background(DLColor.background)
         .navigationTitle("Inbox")
+        .sheet(item: $rescheduleTask) { selection in
+            DLRescheduleSheet(taskID: selection.id)
+                .environmentObject(services)
+                .presentationDetents([.medium, .large])
+        }
     }
 
     private var header: some View {
@@ -129,9 +135,7 @@ struct InboxView: View {
 
             HStack(spacing: DLSpacing.sm) {
                 quickAction("Schedule", systemImage: "calendar.badge.plus") {
-                    services.localStore.updateTaskStatus(id: task.id, status: .scheduled)
-                    _ = services.calendar.updateEvent(for: task.id, in: services.localStore)
-                    _ = services.notifications.scheduleReminder(for: task.id, in: services.localStore)
+                    rescheduleTask = InboxRescheduleTask(id: task.id)
                 }
                 quickAction("Break down", systemImage: "arrow.down.right.and.arrow.up.left") {
                     _ = services.localStore.shrinkTask(id: task.id)
@@ -271,6 +275,10 @@ private extension Optional where Wrapped == String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+}
+
+private struct InboxRescheduleTask: Identifiable {
+    let id: UUID
 }
 
 private extension String {
