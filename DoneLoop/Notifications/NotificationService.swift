@@ -95,8 +95,14 @@ final class NotificationService: NSObject, ObservableObject {
         content.sound = .default
         content.userInfo = ["taskID": task.id.uuidString]
 
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let interval = reminderDate.timeIntervalSince(Date())
+        let trigger: UNNotificationTrigger
+        if interval <= 24 * 60 * 60 {
+            trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, interval), repeats: false)
+        } else {
+            let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
+            trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        }
         let request = UNNotificationRequest(identifier: notificationID, content: content, trigger: trigger)
 
         center.add(request) { error in

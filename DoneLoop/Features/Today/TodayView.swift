@@ -48,10 +48,19 @@ struct TodayView: View {
             .map { $0 }
     }
 
+    private var completedTodayTasks: [DLTask] {
+        services.localStore.tasks
+            .filter { task in
+                task.status == .done && Calendar.current.isDateInToday(task.updatedAt)
+            }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .prefix(5)
+            .map { $0 }
+    }
+
     private var rankedTopTasks: [DLTask] {
         services.localStore.tasks
             .filter(\.isActive)
-            .filter { !$0.isCalendarBlock }
             .filter { $0.isTopThreeCandidate(referenceDate: Date()) }
             .sorted(by: deterministicTopTaskSort)
     }
@@ -61,7 +70,7 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: DLSpacing.xl) {
                 header
 
-                if todayTasks.isEmpty && calendarBlocks.isEmpty && overdueTasks.isEmpty && pendingDecisionTasks.isEmpty && upcomingTasks.isEmpty {
+                if todayTasks.isEmpty && calendarBlocks.isEmpty && overdueTasks.isEmpty && pendingDecisionTasks.isEmpty && upcomingTasks.isEmpty && completedTodayTasks.isEmpty {
                     DLEmptyState(
                         title: "Today is clear",
                         detail: "Capture a thought or open Inbox to choose what deserves attention.",
@@ -112,6 +121,14 @@ struct TodayView: View {
                         } else {
                             ForEach(pendingDecisionTasks) { task in
                                 taskButton(task, statusOverride: task.status == .inbox ? .needsDecision : nil)
+                            }
+                        }
+                    }
+
+                    if !completedTodayTasks.isEmpty {
+                        section(title: "Done Today", detail: "Completed work stays visible here for the day.") {
+                            ForEach(completedTodayTasks) { task in
+                                completedTaskRow(task)
                             }
                         }
                     }
@@ -174,6 +191,19 @@ struct TodayView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    private func completedTaskRow(_ task: DLTask) -> some View {
+        DLTaskRow(
+            task: TaskPreview(
+                id: task.id,
+                title: task.title,
+                nextAction: task.nextAction?.nonEmpty ?? task.summary?.nonEmpty ?? "Completed.",
+                status: .done
+            ),
+            isCompleted: true
+        )
+        .opacity(0.72)
     }
 
     private func upcomingTaskRow(_ task: DLTask) -> some View {
@@ -284,10 +314,6 @@ struct TodayView: View {
 private extension DLTask {
     var isActive: Bool {
         status != .deleted && status != .done
-    }
-
-    var isCalendarBlock: Bool {
-        scheduledStart != nil && scheduledEnd != nil && calendarEventID == nil
     }
 
     var belongsOnToday: Bool {

@@ -642,7 +642,10 @@ private extension LocalStore {
 }
 
 struct DLBreakdownSuggestion: Identifiable, Equatable {
-    let id = UUID()
+    var id: String {
+        "\(title)|\(nextAction)"
+    }
+
     var title: String
     var summary: String
     var nextAction: String

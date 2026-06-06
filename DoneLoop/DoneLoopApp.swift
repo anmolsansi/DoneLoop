@@ -8,6 +8,7 @@ struct DoneLoopApp: App {
         WindowGroup {
             AppRootView()
                 .environmentObject(services)
+                .preferredColorScheme(.light)
         }
     }
 }

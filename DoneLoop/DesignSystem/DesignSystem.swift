@@ -119,6 +119,7 @@ struct DLPrimaryButton: View {
 
 struct DLTaskRow: View {
     let task: TaskPreview
+    var isCompleted: Bool = false
 
     var body: some View {
         HStack(alignment: .top, spacing: DLSpacing.md) {
@@ -126,10 +127,12 @@ struct DLTaskRow: View {
                 Text(task.title)
                     .font(.headline)
                     .foregroundStyle(DLColor.textPrimary)
+                    .strikethrough(isCompleted, color: DLColor.textSecondary)
                     .lineLimit(2)
                 Text(task.nextAction)
                     .font(.callout)
                     .foregroundStyle(DLColor.textSecondary)
+                    .strikethrough(isCompleted, color: DLColor.textSecondary)
                     .lineLimit(2)
             }
             Spacer(minLength: DLSpacing.sm)

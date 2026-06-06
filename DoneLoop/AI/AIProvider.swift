@@ -58,7 +58,7 @@ struct RuleBasedAIProvider: DLAIProviding {
                     confidence: 0.78
                 )
             )
-        } else if lowercased.contains("idea") {
+        } else if Self.isIdea(lowercased) {
             items.append(
                 DLParsedItem(
                     type: .idea,
@@ -111,22 +111,8 @@ struct RuleBasedAIProvider: DLAIProviding {
                     DLParsedItem(
                         type: .task,
                         title: title,
-                        summary: trimmed,
+                        summary: "Scheduled work block for \(title).",
                         nextAction: "Start the scheduled work block.",
-                        priority: priority,
-                        scheduledStart: start,
-                        scheduledEnd: end,
-                        calendarRequired: false,
-                        confidence: schedule.isAmbiguous ? 0.68 : 0.84,
-                        needsClarification: schedule.isAmbiguous,
-                        warnings: schedule.isAmbiguous ? ["Time is ambiguous. Review before saving."] : []
-                    )
-                )
-                items.append(
-                    DLParsedItem(
-                        type: .calendarBlock,
-                        title: title,
-                        summary: "Calendar block for \(title).",
                         priority: priority,
                         scheduledStart: start,
                         scheduledEnd: end,
@@ -243,7 +229,21 @@ struct RuleBasedAIProvider: DLAIProviding {
     }
 
     private static func isNoteOnly(_ input: String) -> Bool {
-        input.hasPrefix("note ") || input.hasPrefix("note:") || input.contains("write this down")
+        input.hasPrefix("note ")
+            || input.hasPrefix("note:")
+            || input.contains("write this down")
+            || input.contains("remember that")
+            || input.contains("save this note")
+    }
+
+    private static func isIdea(_ input: String) -> Bool {
+        input.contains("idea")
+            || input.contains("thinking to create")
+            || input.contains("thinking of creating")
+            || input.contains("thinking about creating")
+            || input.contains("what if ")
+            || input.contains("maybe build")
+            || input.contains("maybe create")
     }
 
     private static func calendar(timeZoneIdentifier: String) -> Calendar {
