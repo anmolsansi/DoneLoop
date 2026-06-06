@@ -364,9 +364,13 @@ struct DLUserSettings: Codable, Equatable {
     var remindersEnabled: Bool
     var localModelName: String?
     var cloudProvider: String?
+    var aiAssistanceConsentGranted: Bool
+    var cloudAIConsentGranted: Bool
     var googleCalendarID: String?
     var googleCalendarAccountEmail: String?
     var googleCalendarName: String?
+    var googleOAuthClientID: String?
+    var googleOAuthRedirectScheme: String?
     var googleCalendarConnectionStatus: DLGoogleCalendarConnectionStatus
     var notificationPermissionStatus: DLNotificationPermissionStatus
     var defaultSnoozeMinutes: Int
@@ -385,9 +389,13 @@ struct DLUserSettings: Codable, Equatable {
             remindersEnabled: false,
             localModelName: nil,
             cloudProvider: nil,
+            aiAssistanceConsentGranted: false,
+            cloudAIConsentGranted: false,
             googleCalendarID: nil,
             googleCalendarAccountEmail: nil,
             googleCalendarName: nil,
+            googleOAuthClientID: nil,
+            googleOAuthRedirectScheme: nil,
             googleCalendarConnectionStatus: .disconnected,
             notificationPermissionStatus: .notDetermined,
             defaultSnoozeMinutes: 30,
@@ -407,9 +415,13 @@ struct DLUserSettings: Codable, Equatable {
         case remindersEnabled
         case localModelName
         case cloudProvider
+        case aiAssistanceConsentGranted
+        case cloudAIConsentGranted
         case googleCalendarID
         case googleCalendarAccountEmail
         case googleCalendarName
+        case googleOAuthClientID
+        case googleOAuthRedirectScheme
         case googleCalendarConnectionStatus
         case notificationPermissionStatus
         case defaultSnoozeMinutes
@@ -428,9 +440,13 @@ struct DLUserSettings: Codable, Equatable {
         remindersEnabled: Bool,
         localModelName: String?,
         cloudProvider: String?,
+        aiAssistanceConsentGranted: Bool = false,
+        cloudAIConsentGranted: Bool = false,
         googleCalendarID: String?,
         googleCalendarAccountEmail: String?,
         googleCalendarName: String?,
+        googleOAuthClientID: String? = nil,
+        googleOAuthRedirectScheme: String? = nil,
         googleCalendarConnectionStatus: DLGoogleCalendarConnectionStatus,
         notificationPermissionStatus: DLNotificationPermissionStatus,
         defaultSnoozeMinutes: Int,
@@ -447,9 +463,13 @@ struct DLUserSettings: Codable, Equatable {
         self.remindersEnabled = remindersEnabled
         self.localModelName = localModelName
         self.cloudProvider = cloudProvider
+        self.aiAssistanceConsentGranted = aiAssistanceConsentGranted
+        self.cloudAIConsentGranted = cloudAIConsentGranted
         self.googleCalendarID = googleCalendarID
         self.googleCalendarAccountEmail = googleCalendarAccountEmail
         self.googleCalendarName = googleCalendarName
+        self.googleOAuthClientID = googleOAuthClientID
+        self.googleOAuthRedirectScheme = googleOAuthRedirectScheme
         self.googleCalendarConnectionStatus = googleCalendarConnectionStatus
         self.notificationPermissionStatus = notificationPermissionStatus
         self.defaultSnoozeMinutes = defaultSnoozeMinutes
@@ -470,9 +490,13 @@ struct DLUserSettings: Codable, Equatable {
         self.remindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .remindersEnabled) ?? defaults.remindersEnabled
         self.localModelName = try container.decodeIfPresent(String.self, forKey: .localModelName)
         self.cloudProvider = try container.decodeIfPresent(String.self, forKey: .cloudProvider)
+        self.aiAssistanceConsentGranted = try container.decodeIfPresent(Bool.self, forKey: .aiAssistanceConsentGranted) ?? defaults.aiAssistanceConsentGranted
+        self.cloudAIConsentGranted = try container.decodeIfPresent(Bool.self, forKey: .cloudAIConsentGranted) ?? defaults.cloudAIConsentGranted
         self.googleCalendarID = try container.decodeIfPresent(String.self, forKey: .googleCalendarID)
         self.googleCalendarAccountEmail = try container.decodeIfPresent(String.self, forKey: .googleCalendarAccountEmail)
         self.googleCalendarName = try container.decodeIfPresent(String.self, forKey: .googleCalendarName)
+        self.googleOAuthClientID = try container.decodeIfPresent(String.self, forKey: .googleOAuthClientID)
+        self.googleOAuthRedirectScheme = try container.decodeIfPresent(String.self, forKey: .googleOAuthRedirectScheme)
         self.googleCalendarConnectionStatus = try container.decodeIfPresent(DLGoogleCalendarConnectionStatus.self, forKey: .googleCalendarConnectionStatus)
             ?? (self.googleCalendarID == nil ? .disconnected : .connected)
         if self.googleCalendarAccountEmail == "connected-google-account" {

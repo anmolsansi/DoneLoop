@@ -31,6 +31,7 @@
 		8A0000010000000000000022 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000122 /* NotificationService.swift */; };
 		8A0000010000000000000023 /* V2BacklogFoundation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000123 /* V2BacklogFoundation.swift */; };
 		8A0000010000000000000024 /* V3ProductionFoundation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000124 /* V3ProductionFoundation.swift */; };
+		8A0000010000000000000025 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000010000000000000125 /* AuthService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +59,7 @@
 		8A0000010000000000000122 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		8A0000010000000000000123 /* V2BacklogFoundation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V2BacklogFoundation.swift; sourceTree = "<group>"; };
 		8A0000010000000000000124 /* V3ProductionFoundation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V3ProductionFoundation.swift; sourceTree = "<group>"; };
+		8A0000010000000000000125 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		8A0000010000000000000201 /* DoneLoop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DoneLoop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -89,6 +91,7 @@
 				8A0000010000000000000416 /* AI */,
 				8A0000010000000000000417 /* Validation */,
 				8A0000010000000000000418 /* Creation */,
+				8A0000010000000000000423 /* Auth */,
 				8A0000010000000000000419 /* Calendar */,
 				8A0000010000000000000420 /* Notifications */,
 				8A0000010000000000000421 /* V2 */,
@@ -271,6 +274,14 @@
 			path = Storage;
 			sourceTree = "<group>";
 		};
+		8A0000010000000000000423 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000010000000000000125 /* AuthService.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -363,6 +374,7 @@
 				8A0000010000000000000022 /* NotificationService.swift in Sources */,
 				8A0000010000000000000023 /* V2BacklogFoundation.swift in Sources */,
 				8A0000010000000000000024 /* V3ProductionFoundation.swift in Sources */,
+				8A0000010000000000000025 /* AuthService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -175,7 +175,42 @@ struct RuleBasedAIProvider: DLAIProviding {
     }
 
     func breakDownTask(_ task: DLTask) async throws -> [DLParsedItem] {
-        [
+        let lowercased = task.title.lowercased()
+        if lowercased.contains("jobs") {
+            return [
+                DLParsedItem(
+                    type: .task,
+                    title: "Apply to 1 job",
+                    summary: "AI-assisted smaller version of: \(task.title)",
+                    nextAction: "Open one saved job link and complete only that application.",
+                    priority: task.priority,
+                    confidence: 0.82
+                ),
+                DLParsedItem(
+                    type: .task,
+                    title: "Pick one job listing",
+                    summary: "Decision-only smaller version of: \(task.title)",
+                    nextAction: "Open saved roles and choose the one listing to apply for.",
+                    priority: task.priority,
+                    confidence: 0.78
+                )
+            ]
+        }
+
+        if lowercased.contains("resume") {
+            return [
+                DLParsedItem(
+                    type: .task,
+                    title: "Improve one resume bullet",
+                    summary: "AI-assisted smaller version of: \(task.title)",
+                    nextAction: "Open the resume and edit one bullet only.",
+                    priority: task.priority,
+                    confidence: 0.8
+                )
+            ]
+        }
+
+        return [
             DLParsedItem(
                 type: .task,
                 title: "Start: \(task.title)",
@@ -437,9 +472,13 @@ final class AIProviderRouter: ObservableObject {
     func modeDetail(for settings: DLUserSettings) -> String {
         switch settings.aiMode {
         case .localOnly:
-            "Local only, using rule-based parser until on-device model integration lands"
+            settings.aiAssistanceConsentGranted
+                ? "Local only with permissioned rule-based AI assistance"
+                : "Local only. AI assistance is off until you grant permission."
         case .localWithFallback:
-            "Local first, cloud fallback placeholder is disabled until configured"
+            settings.cloudAIConsentGranted
+                ? "Local first. Cloud fallback is allowed when configured."
+                : "Local first. Cloud fallback requires permission before use."
         case .bringYourOwnKey:
             "Bring Your Own Key is planned, using rule-based parser for now"
         }
@@ -456,6 +495,24 @@ final class AIProviderRouter: ObservableObject {
             return .success(output)
         } catch {
             return .failure(error)
+        }
+    }
+
+    func breakDownTask(_ task: DLTask, settings: DLUserSettings) async -> [DLBreakdownSuggestion] {
+        guard settings.aiAssistanceConsentGranted else {
+            return []
+        }
+
+        do {
+            return try await provider(for: settings).breakDownTask(task).map { item in
+                DLBreakdownSuggestion(
+                    title: item.title,
+                    summary: item.summary ?? "Smaller version of: \(task.title)",
+                    nextAction: item.nextAction ?? "Choose the first visible step."
+                )
+            }
+        } catch {
+            return []
         }
     }
 }

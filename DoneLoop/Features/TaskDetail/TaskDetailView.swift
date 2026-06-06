@@ -471,13 +471,14 @@ struct DLBreakdownPreviewSheet: View {
     @State private var editedTitle = ""
     @State private var editedSummary = ""
     @State private var editedNextAction = ""
+    @State private var aiSuggestions: [DLBreakdownSuggestion] = []
 
     private var task: DLTask? {
         services.localStore.task(id: taskID)
     }
 
     private var suggestions: [DLBreakdownSuggestion] {
-        services.localStore.breakdownSuggestions(for: taskID)
+        aiSuggestions + services.localStore.breakdownSuggestions(for: taskID)
     }
 
     var body: some View {
@@ -535,6 +536,9 @@ struct DLBreakdownPreviewSheet: View {
                 }
             }
             .onAppear(perform: selectInitialSuggestion)
+            .task {
+                await loadAISuggestions()
+            }
         }
     }
 
@@ -614,6 +618,16 @@ struct DLBreakdownPreviewSheet: View {
         )
         _ = services.localStore.applyBreakdownSuggestion(id: taskID, suggestion: suggestion)
         dismiss()
+    }
+
+    private func loadAISuggestions() async {
+        guard let task else { return }
+        let suggestions = await services.aiRouter.breakDownTask(task, settings: services.localStore.settings)
+        guard !suggestions.isEmpty else { return }
+        aiSuggestions = suggestions
+        if selectedSuggestion == nil {
+            select(suggestions[0])
+        }
     }
 }
 
