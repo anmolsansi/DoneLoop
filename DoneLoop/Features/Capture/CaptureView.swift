@@ -70,7 +70,7 @@ struct CaptureView: View {
                         Spacer()
                         DLPrimaryButton("Save Voice", systemImage: "waveform") {
                             saveAndParseCapture(text: voiceCapture.transcript, source: .voice)
-                            voiceCapture.stop()
+                            voiceCapture.cancel()
                         }
                         .disabled(voiceCapture.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
