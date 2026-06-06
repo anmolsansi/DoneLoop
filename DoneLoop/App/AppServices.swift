@@ -4,6 +4,7 @@ import Combine
 @MainActor
 final class AppServices: ObservableObject {
     let localStore = LocalStore()
+    let auth = AuthService()
     let aiRouter = AIProviderRouter()
     let calendar = CalendarService()
     let notifications = NotificationService()
@@ -12,6 +13,10 @@ final class AppServices: ObservableObject {
 
     init() {
         localStore.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
+        auth.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &cancellables)
 
